@@ -64,7 +64,7 @@ Thumbs.db
 ############################
 # Docker
 ############################
-docker-compose.override.yml
+docker-compose.yml
 *.pid
 *.seed
 *.pid.lock
@@ -102,3 +102,9 @@ secrets/
 *.key
 *.pem
 *.crt
+
+############################
+# Logs
+############################
+*.out
+*.err
