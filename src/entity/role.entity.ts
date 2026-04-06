@@ -5,13 +5,13 @@ import { Base } from "./base.entity";
 
 @Entity()
 export class Role extends Base{
-    @Column()
-    name: string;
+    @Column({ type: "varchar", length: 25, unique: true })
+    name!: string;
 
-    @Column()
-    description: string;
+    @Column({ type: "varchar", length: 400 })
+    description!: string;
 
-    @OneToMany(() => User, (user) => user.role)
-    users: User[];
+    @OneToMany(() => User, (user: User) => user.role)
+    users!: User[];
 
 }

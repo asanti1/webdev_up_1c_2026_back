@@ -6,16 +6,16 @@ import { Base } from "./base.entity";
 @Entity()
 export class Destination extends Base{
 
-    @Column()
-    name: string;
+    @Column({ type: "varchar", length: 50 })
+    name!: string;
 
-    @Column()
-    description: string;
+    @Column({ type: "varchar", length: 400 })
+    description!: string;
 
-    @ManyToOne(() => Country, (country) => country.destinations)
-    country: Country;
+    @ManyToOne(() => Country, (country: Country) => country.destinations)
+    country!: Country;
 
-    @OneToMany(() => Package, (pack) => pack.destination)
-    packages: Package[];
+    @OneToMany(() => Package, (pack: Package) => pack.destination)
+    packages!: Package[];
 
 }

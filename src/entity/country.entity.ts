@@ -7,15 +7,15 @@ import { User } from "./user.entity";
 @Entity()
 export class Country extends Base {
 
-    @Column()
-    name: string;
+    @Column({ type: "varchar", length: 50 })
+    name!: string;
 
-    @Column()
-    isoCode: string;
+    @Column({ type: "varchar", length: 3, unique: true })
+    isoCode!: string;
 
-    @OneToMany(() => User, (user) => user.country)
-    users: User[];
+    @OneToMany(() => User, (user: User) => user.country)
+    users!: User[];
 
-    @OneToMany(() => Destination, (destination) => destination.country)
-    destinations: Destination[];
-    }
+    @OneToMany(() => Destination, (destination: Destination) => destination.country)
+    destinations!: Destination[];
+}

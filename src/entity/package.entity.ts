@@ -6,40 +6,40 @@ import { Reservation } from "./reservation.entity";
 
 @Entity()
 export class Package extends Base {
-    @Column()
-    title: string;
+    @Column({ type: "varchar", length: 50 })
+    title!: string;
 
-    @Column()
-    description: string;
+    @Column({ type: "varchar", length: 400 })
+    description!: string;
 
-    @Column()
-    price: number;
+    @Column({ type: "int" })
+    price!: number;
 
-    @Column()
-    startDate: Date;
+    @Column({ type: "date" })
+    startDate!: Date;
 
-    @Column()
-    endDate: Date;
+    @Column({ type: "date" })
+    endDate!: Date;
 
-    @Column()
-    availableSlots: number;
+    @Column({ type: "int" })
+    availableSlots!: number;
 
-    @Column()
-    maxSlots: number;
+    @Column({ type: "int" })
+    maxSlots!: number;
 
-    @Column()
-    imageUrl: string;
+    @Column({ type: "varchar", length: 400 })
+    imageUrl!: string;
 
-    @Column()
-    isActive: boolean;
+    @Column({ type: "boolean" })
+    isActive!: boolean;
 
-    @ManyToOne(() => CategoryPackage, (categoryPackage) => categoryPackage.packages)
-    categoryPackage: CategoryPackage;
+    @ManyToOne(() => CategoryPackage, (categoryPackage: CategoryPackage) => categoryPackage.packages)
+    categoryPackage!: CategoryPackage;
 
-    @ManyToOne(() => Destination, (destination) => destination.packages)
-    destination: Destination;
+    @ManyToOne(() => Destination, (destination: Destination) => destination.packages)
+    destination!: Destination;
 
-    @OneToMany(() => Reservation, (reservation) => reservation.package)
-    reservations: Reservation[];
+    @OneToMany(() => Reservation, (reservation: Reservation) => reservation.package)
+    reservations!: Reservation[];
 
 }

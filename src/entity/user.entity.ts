@@ -5,34 +5,34 @@ import { Reservation } from "./reservation.entity";
 import { Role } from "./role.entity";
 
 @Entity()
-export class User extends Base{
-    @Column()
-    firstName: string;
+export class User extends Base {
+    @Column({ type: "varchar", length: 50 })
+    firstName!: string;
 
-    @Column()
-    lastName: string;
+    @Column({ type: "varchar", length: 50 })
+    lastName!: string;
 
-    @Column()
-    age: number;
+    @Column({ type: "int" })
+    age!: number;
 
-    @Column()
-    email: string;
+    @Column({ type: "varchar", length: 75, unique: true })
+    email!: string;
 
-    @Column()
-    password: string;
+    @Column({ type: "varchar", length: 100 })
+    password!: string;
 
-    @Column()
-    isActive: boolean;
+    @Column({ type: "boolean", default: true })
+    isActive!: boolean;
 
-    @Column()
-    cellphoneNumber: string;
+    @Column({ type: "varchar", length: 50 })
+    cellphoneNumber!: string;
 
     @ManyToOne(() => Role, (role) => role.users)
-    role: Role;
+    role!: Role;
 
-    @ManyToOne(() => Country, (country) => country.users)
-    country: Country;
+    @ManyToOne(() => Country, (country: Country) => country.users)
+    country!: Country;
 
-    @OneToMany(() => Reservation, (reservation) => reservation.user)
-    reservations: Reservation[];
+    @OneToMany(() => Reservation, (reservation: Reservation) => reservation.user)
+    reservations!: Reservation[];
 }

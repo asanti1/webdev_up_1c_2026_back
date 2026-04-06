@@ -1,7 +1,7 @@
-import { Column, Entity, Generated, ManyToOne, PrimaryColumn } from "typeorm";
+import { Column, Entity, ManyToOne } from "typeorm";
+import { Base } from "./base.entity";
 import { Package } from "./package.entity";
 import { User } from "./user.entity";
-import { Base } from "./base.entity";
 
 enum ReservationStatusEnum {
     PENDING = "pending",
@@ -13,29 +13,29 @@ enum ReservationStatusEnum {
 @Entity()
 export class Reservation extends Base {
 
-    @Column()
-    reservationDate: Date;
+    @Column({ type: "date" })
+    reservationDate!: Date;
 
-    @Column()
-    totalPassengers: number;
+    @Column({ type: "int" })
+    totalPassengers!: number;
 
-    @Column()
-    finalPrice: number;
+    @Column({ type: "numeric", precision: 10, scale: 2 })
+    finalPrice!: number;
 
-    @Column()
-    notes: string;
+    @Column({ type: "varchar", length: 400, nullable: true })
+    notes!: string | null;
 
     @Column({
         type: "enum",
         enum: ReservationStatusEnum,
         default: ReservationStatusEnum.PENDING,
     })
-    status: ReservationStatusEnum;
+    status!: ReservationStatusEnum;
 
-    @ManyToOne(() => User, (user) => user.reservations)
-    user: User;
+    @ManyToOne(() => User, (user: User) => user.reservations)
+    user!: User;
 
-    @ManyToOne(() => Package, (pack) => pack.reservations)
-    package: Package;
+    @ManyToOne(() => Package, (pack: Package) => pack.reservations)
+    package!: Package;
 
 }

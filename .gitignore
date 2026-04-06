@@ -68,6 +68,7 @@ docker-compose.yml
 *.pid
 *.seed
 *.pid.lock
+volumes/
 
 ############################
 # Database
