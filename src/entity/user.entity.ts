@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, OneToMany } from "typeorm";
+import { Column, DeleteDateColumn, Entity, ManyToOne, OneToMany } from "typeorm";
 import { Base } from "./base.entity";
 import { Country } from "./country.entity";
 import { Reservation } from "./reservation.entity";
@@ -18,11 +18,8 @@ export class User extends Base {
     @Column({ type: "varchar", length: 75, unique: true })
     email!: string;
 
-    @Column({ type: "varchar", length: 100 })
+    @Column({ type: "varchar", length: 100, select: false })
     password!: string;
-
-    @Column({ type: "boolean", default: true })
-    isActive!: boolean;
 
     @Column({ type: "varchar", length: 50 })
     cellphoneNumber!: string;
@@ -35,4 +32,7 @@ export class User extends Base {
 
     @OneToMany(() => Reservation, (reservation: Reservation) => reservation.user)
     reservations!: Reservation[];
+
+    @DeleteDateColumn()
+    deletedAt?: Date;
 }

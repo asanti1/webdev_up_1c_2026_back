@@ -9,7 +9,7 @@ import { Reservation } from "./entity/reservation.entity";
 import { Role } from "./entity/role.entity";
 
 
-const AppDataSource = new DataSource({
+export const AppDataSource = new DataSource({
     type: "postgres",
     host: env.POSTGRE_HOST,
     port: Number(env.POSTGRE_PORT),

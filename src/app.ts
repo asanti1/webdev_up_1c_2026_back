@@ -1,10 +1,12 @@
 import "reflect-metadata"
 import express from 'express';
 import { initDB } from "./database";
+import passport from "passport";
 
 const app = express();
 app.use(express.json());
 
+app.use(passport.initialize());
 
 
 async function bootstrap() {
