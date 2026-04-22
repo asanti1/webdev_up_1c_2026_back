@@ -8,9 +8,7 @@ const paramsSchema = z.object({
 });
 export class UserController {
     constructor(private readonly userService: UserService = new UserService()) { }
-
-
-
+    
     async getById(req: Request, res: Response) {
         const { id } = paramsSchema.parse(req.params);
 

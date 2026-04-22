@@ -5,8 +5,24 @@ import { User } from "../entity/user.entity";
 export class UserRepository {
     constructor(private readonly userDataSource: Repository<User> = AppDataSource.getRepository(User)) { }
 
+
     async findById(id: string): Promise<User | null> {
         return await this.userDataSource.findOneBy({ id })
+    }
+
+    async findByEmail(email: string): Promise<User | null> {
+        return await this.userDataSource.findOne({
+            where: { email },
+            select: {
+                id: true,
+                email: true,
+                password: true,
+                role: true,
+            },
+            relations: {
+                role: true,
+            },
+        });
     }
 
     async update(id: string, partial: Partial<User>): Promise<User | null> {
