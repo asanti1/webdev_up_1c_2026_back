@@ -7,6 +7,8 @@ import { User } from "../entity/user.entity";
 import { UnauthorizedError } from "../errors/unauthorized.error";
 import { UserRepository } from "../repositories/user.repository";
 import { UserService } from "./user.service";
+import { LoginDto } from "../dtos/login.dto";
+import { ConflictError } from "../errors/conflict.error";
 
 export class AuthService {
     constructor(
@@ -15,11 +17,11 @@ export class AuthService {
     ) { }
 
 
-    async login(email: string, password: string): Promise<string> {
-        const user = await this.userRepository.findByEmail(email);
+    async login(loginCreds: LoginDto): Promise<string> {
+        const user = await this.userRepository.findByEmail(loginCreds.email);
         if (!user) throw new UnauthorizedError("Invalid Credentials");
 
-        const isValid = await bcrypt.compare(password, user.password);
+        const isValid = await bcrypt.compare(loginCreds.password, user.password);
 
         if (!isValid) throw new UnauthorizedError("Invalid Credentials");
 
@@ -37,7 +39,7 @@ export class AuthService {
         const existingUser = await this.userRepository.findByEmail(createUserDto.email);
 
         if (existingUser) {
-            throw new Error(`Email ${createUserDto.email} has been taken`);
+            throw new ConflictError(`Email ${createUserDto.email} has been taken`);
         }
 
         return await this.userService.create(createUserDto);

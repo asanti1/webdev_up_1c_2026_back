@@ -3,7 +3,7 @@ import { Base } from "./base.entity";
 import { Package } from "./package.entity";
 import { User } from "./user.entity";
 
-enum ReservationStatusEnum {
+export enum ReservationStatusEnum {
     PENDING = "pending",
     CONFIRMED = "confirmed",
     CANCELLED = "cancelled",
