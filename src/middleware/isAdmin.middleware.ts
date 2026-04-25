@@ -1,13 +1,14 @@
 import { NextFunction, Request, Response } from "express";
+import { User } from "../entity/user.entity";
 
 export const isAdmin = (
   req: Request,
   res: Response,
   next: NextFunction
 ) => {
-  const authUser = req.user as { id: string; role?: string };
+  const authUser = req.user as User;
 
-  if (authUser.role === "ADMIN") {
+  if (authUser.role.name === "ADMIN") {
     return next();
   }
 

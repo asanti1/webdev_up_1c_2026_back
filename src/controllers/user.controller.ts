@@ -21,7 +21,7 @@ export class UserController {
     deleteById = async (req: Request, res: Response) => {
         const { id } = paramsSchema.parse(req.params);
 
-        const user = await this.userService.deleteById(id);
+        await this.userService.deleteById(id);
 
         return res.status(204).send();
     }

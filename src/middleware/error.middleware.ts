@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { ErrorBase } from "../errors/base.error";
+import { ZodError } from "zod";
 
 export function errorMiddleware(
   err: unknown,
@@ -14,6 +15,20 @@ export function errorMiddleware(
         name: err.name,
         message: err.message,
         details: err.details ?? null,
+      },
+    });
+  }
+
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        name: "ValidationError",
+        message: "Validation error",
+        details: err.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
       },
     });
   }
