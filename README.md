@@ -23,7 +23,7 @@ API REST para la gestión de usuarios, paquetes turísticos, reservas, destinos,
 
 ```bash
 git clone https://github.com/asanti1/webdev_up_1c_2026_back
-cd backend
+cd webdev_up_1c_2026_back
 ```
 
 ### 2. Instalar dependencias
