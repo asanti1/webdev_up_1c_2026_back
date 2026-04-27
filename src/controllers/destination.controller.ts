@@ -1,5 +1,5 @@
-import { NextFunction, Request, Response } from "express";
-import z from "zod";
+import { Request, Response } from "express";
+import { z } from "../config/zod.config";
 import { createDestinationSchema } from "../dtos/createDestination.dto";
 import { updateDestinationSchema } from "../dtos/updateDestination.dto";
 import { DestinationService } from "../services/destination.service";

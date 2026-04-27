@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import z from "zod";
+import { z } from "../config/zod.config";
 import { CategoryPackageService } from "../services/categoryPackage.service";
 import { updateCategoryPackageSchema } from "../dtos/updateCategoryPackage.dto";
 import { createCategoryPackageSchema } from "../dtos/createCategoryPackage.dto";

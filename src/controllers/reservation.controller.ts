@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import z from "zod";
+import { z } from "../config/zod.config";
 import { ReservationStatusEnum } from "../entity/reservation.entity";
 import { BadRequestError } from "../errors/badRequest.error";
 import { ReservationService } from "../services/reservation.service";

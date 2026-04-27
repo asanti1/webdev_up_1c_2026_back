@@ -11,6 +11,8 @@ import packageRoutes from "./routes/package.routes";
 import reservationRoutes from './routes/reservation.routes';
 import userRoutes from "./routes/user.routes";
 import countryRoutes from './routes/country.routes';
+import swaggerUi from "swagger-ui-express";
+import { openApiDocument } from './docs/openApi';
 
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
@@ -24,6 +26,11 @@ const app = express();
 app.use(express.json());
 
 app.use(passport.initialize());
+
+app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+app.get("/docs.json", (_req, res) => {
+  return res.json(openApiDocument);
+});
 
 app.get("/health", (_req, res) => {
   res.send("Healthy");

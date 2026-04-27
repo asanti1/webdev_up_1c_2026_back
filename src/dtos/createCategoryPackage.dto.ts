@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "../config/zod.config";
 
 export const createCategoryPackageSchema = z.object({
   name: z.string().min(1),

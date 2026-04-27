@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import z from "zod";
+import { z } from "../config/zod.config";
 import { createCountrySchema } from "../dtos/createCountry.dto";
 import { CountryService } from "../services/country.service";
 

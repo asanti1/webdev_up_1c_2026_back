@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { z } from "zod";
+import { z } from "../config/zod.config";
 import { updateUserSchema } from "../dtos/updateUser.dto";
 import { UserService } from "../services/user.service";
 import { createUserSchema } from "../dtos/createUser.dto";
@@ -41,15 +41,7 @@ export class UserController {
 
       const user = await this.userService.create(data);
 
-      const safeUser = {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role?.name,
-      };
-
-      res.status(201).json(safeUser);
+      res.status(201).json(user);
     } catch (error) {
       next(error);
     }

@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "../config/zod.config";
 import { countryResponseSchema } from "./countryResponse.dto";
 
 export const paginatedCountryResponseSchema = z.object({

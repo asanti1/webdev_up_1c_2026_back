@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "../config/zod.config";
 
 export const destinationResponseSchema = z.object({
   id: z.uuid(),

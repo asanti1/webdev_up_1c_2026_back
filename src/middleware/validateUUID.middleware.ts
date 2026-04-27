@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import z from "zod";
+import { z } from "../config/zod.config";
 
 const uuidSchema = z.uuid();
 

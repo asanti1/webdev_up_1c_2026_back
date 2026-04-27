@@ -1,14 +1,19 @@
 import bcrypt from "bcrypt";
+import { AppDataSource } from "../database";
 import { CreateUserDto } from "../dtos/createUser.dto";
 import { UpdateUserDto } from "../dtos/updateUser.dto";
+import { UserResponseDto } from "../dtos/userResponse.dto";
 import { Role } from "../entity/role.entity";
 import { User } from "../entity/user.entity";
 import { NotFoundError } from "../errors/notFound.error";
 import { UserRepository } from "../repositories/user.repository";
-import { AppDataSource } from "../database";
+import { Country } from "../entity/country.entity";
+import { CountryRepository } from "../repositories/country.repository";
 
 export class UserService {
-    constructor(private readonly userRepository: UserRepository = new UserRepository()) { }
+    constructor(
+        private readonly userRepository: UserRepository = new UserRepository(),
+        private readonly countryRepository: CountryRepository = new CountryRepository()) { }
 
     async getById(id: string): Promise<User> {
         const userFound = await this.userRepository.findById(id);
@@ -27,8 +32,7 @@ export class UserService {
         const deleted = await this.userRepository.deleteById(id);
         if (!deleted) throw new NotFoundError(`User with id: ${id} not found`);
     }
-
-    async create(createUserDto: CreateUserDto & { role?: Role }): Promise<User> {
+    async create(createUserDto: CreateUserDto & { role?: Role }): Promise<UserResponseDto> {
         const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
 
         const roleRepo = AppDataSource.getRepository(Role);
@@ -41,16 +45,48 @@ export class UserService {
             if (!foundRole) {
                 throw new Error("Default role not configured");
             }
-
             role = foundRole;
         }
 
+        const country = await this.countryRepository.findById(createUserDto.countryId);
+
+        if (!country) {
+            throw new NotFoundError(`Country with id: ${createUserDto.countryId} not found`);
+        }
+
         const user = this.userRepository.createEntity({
-            ...createUserDto,
+            firstName: createUserDto.firstName,
+            lastName: createUserDto.lastName,
+            age: createUserDto.age,
+            email: createUserDto.email,
             password: hashedPassword,
+            cellphoneNumber: createUserDto.cellphoneNumber,
             role,
+            country,
         });
 
-        return await this.userRepository.save(user);
+        const savedUser = await this.userRepository.save(user);
+
+        return this.toUserResponseDto(savedUser);
+    }
+
+    private toUserResponseDto(user: User): UserResponseDto {
+        return {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            age: user.age,
+            email: user.email,
+            cellphoneNumber: user.cellphoneNumber,
+            role: {
+                id: user.role.id,
+                name: user.role.name,
+            },
+            country: {
+                id: user.country.id,
+                name: user.country.name,
+                isoCode: user.country.isoCode,
+            },
+        };
     }
 }

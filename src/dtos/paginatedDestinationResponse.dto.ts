@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "../config/zod.config";
 import { destinationResponseSchema } from "./destinationResponse.dto";
 
 export const paginatedDestinationResponseSchema = z.object({

@@ -1,4 +1,4 @@
-import z from "zod";
+import { z } from "../config/zod.config";
 import { AppDataSource } from "../database";
 import { CreatePackageDto } from "../dtos/createPackage.dto";
 import { PaginatedPackagesResponseDto } from "../dtos/findPackagesResponse.dto";

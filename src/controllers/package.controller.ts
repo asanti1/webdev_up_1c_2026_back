@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from "express";
 import { PackageService } from "../services/package.service";
 import { updatePackageSchema } from "../dtos/updatePackage.dto";
 import { createPackageSchema } from "../dtos/createPackage.dto";
-import z from "zod";
+import { z } from "../config/zod.config";
 
 const paramsSchema = z.object({
   id: z.uuid()

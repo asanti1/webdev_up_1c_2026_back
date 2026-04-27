@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "../config/zod.config";
 import { packageResponseSchema } from "./packageResponse.dto";
 
 

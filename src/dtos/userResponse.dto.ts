@@ -1,12 +1,21 @@
-import { Country } from "../entity/country.entity";
+import { z } from "../config/zod.config";
 
-export type UserResponseDto = {
-    id: string;
-    firstName: string;
-    lastName: string;
-    age: number;
-    email: string;
-    cellphoneNumber: string;
-    country: Country
-};
+export const userResponseSchema = z.object({
+  id: z.uuid(),
+  firstName: z.string(),
+  lastName: z.string(),
+  age: z.number(),
+  email: z.email(),
+  cellphoneNumber: z.string(),
+  role: z.object({
+    id: z.uuid(),
+    name: z.string(),
+  }),
+  country: z.object({
+    id: z.uuid(),
+    name: z.string(),
+    isoCode: z.string(),
+  }),
+});
 
+export type UserResponseDto = z.infer<typeof userResponseSchema>;

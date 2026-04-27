@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "../config/zod.config";
 
 export const createCountrySchema = z.object({
     name: z.string().min(2).max(50),

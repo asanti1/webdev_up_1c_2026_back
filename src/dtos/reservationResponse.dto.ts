@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "../config/zod.config";
 import { ReservationStatusEnum } from "../entity/reservation.entity";
 
 

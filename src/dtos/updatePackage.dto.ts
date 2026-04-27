@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "../config/zod.config";
 
 export const updatePackageSchema = z.object({
     title: z.string().max(50).optional(),

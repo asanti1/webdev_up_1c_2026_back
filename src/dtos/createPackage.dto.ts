@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "../config/zod.config";
 
 export const createPackageSchema = z.object({
     title: z.string().min(1),
