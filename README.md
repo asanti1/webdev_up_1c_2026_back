@@ -38,7 +38,11 @@ Renombrar `.env.example` a `.env`
 Renombrar docker-compose.example.yml a docker-compose.yml
 
 ---
-
+### 4. Seedear la base de datos
+```bash
+npm run seed
+```
+--- 
 ## 🐳 Ejecutar con Docker
 
 ```bash
