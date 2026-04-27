@@ -30,7 +30,6 @@ export class UserRepository {
         if (!entity) return null;
         return await this.save(entity)
     }
-
     createEntity(data: Partial<User>): User {
         return this.userDataSource.create(data);
     }

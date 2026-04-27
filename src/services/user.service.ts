@@ -6,9 +6,8 @@ import { UserResponseDto } from "../dtos/userResponse.dto";
 import { Role } from "../entity/role.entity";
 import { User } from "../entity/user.entity";
 import { NotFoundError } from "../errors/notFound.error";
-import { UserRepository } from "../repositories/user.repository";
-import { Country } from "../entity/country.entity";
 import { CountryRepository } from "../repositories/country.repository";
+import { UserRepository } from "../repositories/user.repository";
 
 export class UserService {
     constructor(

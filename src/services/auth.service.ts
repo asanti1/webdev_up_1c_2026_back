@@ -9,6 +9,7 @@ import { UserRepository } from "../repositories/user.repository";
 import { UserService } from "./user.service";
 import { LoginDto } from "../dtos/login.dto";
 import { ConflictError } from "../errors/conflict.error";
+import { UserResponseDto } from "../dtos/userResponse.dto";
 
 export class AuthService {
     constructor(
@@ -35,7 +36,7 @@ export class AuthService {
         return accessToken
     }
 
-    async register(createUserDto: CreateUserDto): Promise<User> {
+    async register(createUserDto: CreateUserDto): Promise<UserResponseDto> {
         const existingUser = await this.userRepository.findByEmail(createUserDto.email);
 
         if (existingUser) {
