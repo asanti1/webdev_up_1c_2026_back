@@ -35,6 +35,7 @@ npm install
 ### 3. Configurar variables de entorno
 
 Renombrar `.env.example` a `.env`
+Renombrar docker-compose.example.yml a docker-compose.yml
 
 ---
 
