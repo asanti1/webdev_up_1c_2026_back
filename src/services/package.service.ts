@@ -2,7 +2,7 @@ import z from "zod";
 import { AppDataSource } from "../database";
 import { CreatePackageDto } from "../dtos/createPackage.dto";
 import { PaginatedPackagesResponseDto } from "../dtos/findPackagesResponse.dto";
-import { packageResponseSchema } from "../dtos/packageResponseSchema.dto";
+import { packageResponseSchema } from "../dtos/packageResponse.dto";
 import { UpdatePackageDto } from "../dtos/updatePackage.dto";
 import { CategoryPackage } from "../entity/categoryPackage.entity";
 import { Destination } from "../entity/destination.entity";
@@ -35,21 +35,21 @@ export class PackageService {
 
     async getById(id: string): Promise<PackageResponseDto> {
         const packageFound = await this.packageRepository.findById(id);
-        if (!packageFound) throw new NotFoundError(`Package with id ${id} not found`);
+        if (!packageFound) throw new NotFoundError(`Package with id: ${id} not found`);
         return this.toPackageResponseDto(packageFound);
     }
 
 
     async update(id: string, updatePackageDto: UpdatePackageDto): Promise<PackageResponseDto> {
         const packageFound = await this.packageRepository.update(id, updatePackageDto);
-        if (!packageFound) throw new NotFoundError(`Package with id ${id} not found`);
+        if (!packageFound) throw new NotFoundError(`Package with id: ${id} not found`);
 
         return this.toPackageResponseDto(packageFound);
     }
 
     async deleteById(id: string): Promise<void> {
         const deleted = await this.packageRepository.delete(id);
-        if (!deleted) throw new NotFoundError(`Package with id ${id} not found`);
+        if (!deleted) throw new NotFoundError(`Package with id: ${id} not found`);
     }
 
     async create(createPackageDto: CreatePackageDto): Promise<PackageResponseDto> {
@@ -80,9 +80,9 @@ export class PackageService {
             categoryPackage,
         });
 
-        const createdPkg = await this.packageRepository.save(pkg)
+        const createdPackage = await this.packageRepository.save(pkg)
 
-        return this.toPackageResponseDto(createdPkg) ;
+        return this.toPackageResponseDto(createdPackage) ;
     }
 
     private toPackageResponseDto(pkg: Package): PackageResponseDto {

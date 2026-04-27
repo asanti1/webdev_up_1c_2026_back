@@ -4,11 +4,8 @@ import { CreateDateColumn, PrimaryGeneratedColumn, UpdateDateColumn } from "type
 export abstract class Base {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
-
-   
     @CreateDateColumn()
     createdAt!: Date
-
     @UpdateDateColumn()
     updatedAt!: Date
 }

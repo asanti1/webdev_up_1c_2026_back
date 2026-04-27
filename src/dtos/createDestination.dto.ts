@@ -1,0 +1,9 @@
+import { z } from "zod";
+
+export const createDestinationSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  countryId: z.uuid(),
+});
+
+export type CreateDestinationDto = z.infer<typeof createDestinationSchema>;

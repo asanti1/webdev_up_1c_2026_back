@@ -12,19 +12,20 @@ export class UserService {
 
     async getById(id: string): Promise<User> {
         const userFound = await this.userRepository.findById(id);
-        if (!userFound) throw new NotFoundError(`User with id ${id} not found`);
+        if (!userFound) throw new NotFoundError(`User with id: ${id} not found`);
         return userFound;
     }
 
     async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+        if (updateUserDto.password) updateUserDto.password = await bcrypt.hash(updateUserDto.password, 10);
         const user = await this.userRepository.update(id, updateUserDto);
-        if (!user) throw new NotFoundError(`User with id ${id} not found`);
+        if (!user) throw new NotFoundError(`User with id: ${id} not found`);
         return user;
     }
 
     async deleteById(id: string): Promise<void> {
         const deleted = await this.userRepository.deleteById(id);
-        if (!deleted) throw new NotFoundError(`User with id ${id} not found`);
+        if (!deleted) throw new NotFoundError(`User with id: ${id} not found`);
     }
 
     async create(createUserDto: CreateUserDto & { role?: Role }): Promise<User> {

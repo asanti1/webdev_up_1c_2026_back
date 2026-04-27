@@ -1,0 +1,2696 @@
+
+
+===== src/app.ts =====
+
+import express from 'express';
+import passport from "passport";
+import "reflect-metadata";
+import "./config/jwtStrategy.config";
+import { initDB } from "./database";
+import { errorMiddleware } from "./middleware/error.middleware";
+import authRoutes from "./routes/auth.routes";
+import categoryPackageRoutes from './routes/categoryPackage.routes';
+import destinationRoutes from './routes/destination.routes';
+import packageRoutes from "./routes/package.routes";
+import reservationRoutes from './routes/reservation.routes';
+import userRoutes from "./routes/user.routes";
+import countryRoutes from './routes/country.routes';
+
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", (err) => {
+  console.error("UNHANDLED REJECTION:", err);
+});
+
+const app = express();
+app.use(express.json());
+
+app.use(passport.initialize());
+
+app.get("/health", (_req, res) => {
+  res.send("Healthy");
+});
+
+
+app.use("/auth", authRoutes);
+app.use("/users", userRoutes);
+app.use("/packages", packageRoutes);
+app.use("/reservations", reservationRoutes);
+app.use("/destinations", destinationRoutes);
+app.use("/categoryPackages", categoryPackageRoutes);
+app.use("/countries", countryRoutes);
+
+
+
+
+app.use(errorMiddleware)
+
+const PORT = Number(process.env.PORT) || 3000;
+async function bootstrap() {
+  try {
+    await initDB();
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server listening on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error("Init DB err", error);
+    process.exit(1);
+  }
+}
+
+
+
+bootstrap();
+
+
+export default app;
+
+===== src/config/env.ts =====
+
+import 'dotenv/config';
+
+export const env = {
+    POSTGRE_HOST: process.env.POSTGRE_HOST!,
+    POSTGRE_PORT: Number(process.env.POSTGRE_PORT)!,
+    POSTGRE_USER: process.env.POSTGRE_USER!,
+    POSTGRE_PASSWORD: process.env.POSTGRE_PASSWORD!,
+    POSTGRE_DB: process.env.POSTGRE_DB!,
+}
+
+===== src/config/jwt.config.ts =====
+
+import { ExtractJwt } from "passport-jwt";
+
+export const jwtOptions = {
+    jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+    secretOrKey: process.env.JWT_SECRET!
+}
+
+
+===== src/config/jwtStrategy.config.ts =====
+
+import passport from "passport";
+import { Strategy as JwtStrategy } from "passport-jwt";
+import { AppDataSource } from "../database";
+import { User } from "../entity/user.entity";
+import { jwtOptions } from "./jwt.config";
+
+const userRepository = AppDataSource.getRepository(User);
+
+
+passport.use(
+    new JwtStrategy(jwtOptions, async (payload, done) => {
+        try {
+            const user = await userRepository.findOne({
+                where: { id: payload.sub },
+                relations: {
+                    role: true,
+                    country:true
+                },
+            });
+
+            if (!user) {
+                return done(null, false);
+            }
+
+            return done(null, user);
+
+        } catch (error) {
+            return done(error, false);
+        }
+    })
+);
+
+===== src/controllers/auth.controller.ts =====
+
+import { NextFunction, Request, Response } from "express";
+import { createUserSchema } from "../dtos/createUser.dto";
+import { loginSchema } from "../dtos/login.dto";
+import { AuthService } from "../services/auth.service";
+
+export class AuthController {
+    constructor(private readonly authService: AuthService = new AuthService()) { }
+
+    login = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const data = loginSchema.parse(req.body);
+            const result = await this.authService.login(data);
+            res.status(201).json(result);
+        } catch (error) {
+            next(error);
+        }
+    }
+
+    register = async (req: Request, res: Response, next: NextFunction) => {
+        try {
+            const data = createUserSchema.parse(req.body);
+
+            const user = await this.authService.register(data);
+            const safeUser = {
+                id: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role?.name,
+            };
+
+            res.status(201).json(safeUser);
+        } catch (error) {
+            next(error);
+        }
+    }
+}
+
+===== src/controllers/categoryPackage.controller.ts =====
+
+import { Request, Response } from "express";
+import z from "zod";
+import { CategoryPackageService } from "../services/categoryPackage.service";
+import { updateCategoryPackageSchema } from "../dtos/updateCategoryPackage.dto";
+import { createCategoryPackageSchema } from "../dtos/createCategoryPackage.dto";
+
+const paramsSchema = z.object({
+    id: z.uuid()
+});
+
+export class CategoryPackageController {
+    constructor(private readonly categoryPackageService: CategoryPackageService = new CategoryPackageService()) { }
+    get = async (req: Request, res: Response) => {
+        let limit = Number(req.query.limit);
+        let page = Number(req.query.page);
+
+        if (Number.isNaN(limit) || limit <= 0) limit = 10;
+        if (Number.isNaN(page) || page <= 0) page = 1;
+
+        if (limit > 50) limit = 50;
+
+        const result = await this.categoryPackageService.get(limit, page);
+
+        return res.status(200).json(result);
+    }
+
+    getById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+
+        const categoryPackage = await this.categoryPackageService.getById(id);
+
+        return res.status(200).json(categoryPackage);
+    }
+
+    updateById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+        const dto = updateCategoryPackageSchema.parse(req.body);
+
+        const categoryPackage = await this.categoryPackageService.update(id, dto);
+
+        return res.status(200).json(categoryPackage);
+    }
+
+
+    deleteById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+
+        await this.categoryPackageService.deleteById(id);
+
+        return res.status(204).send();
+    }
+
+
+    create = async (req: Request, res: Response) => {
+        const data = createCategoryPackageSchema.parse(req.body);
+        const categoryPackage = await this.categoryPackageService.create(data);
+        return res.status(201).json(categoryPackage);
+    };
+}
+
+
+===== src/controllers/country.controller.ts =====
+
+import { Request, Response } from "express";
+import z from "zod";
+import { createCountrySchema } from "../dtos/createCountry.dto";
+import { CountryService } from "../services/country.service";
+
+const paramsSchema = z.object({
+  id: z.uuid()
+});
+
+export class CountryController {
+  constructor(private readonly countryService: CountryService = new CountryService()) { }
+
+  get = async (req: Request, res: Response) => {
+    let limit = Number(req.query.limit);
+    let page = Number(req.query.page);
+
+    if (Number.isNaN(limit) || limit <= 0) limit = 10;
+    if (Number.isNaN(page) || page <= 0) page = 1;
+
+    if (limit > 50) limit = 50;
+
+    const result = await this.countryService.get(limit, page);
+
+    return res.status(200).json(result);
+  }
+
+  getById = async (req: Request, res: Response) => {
+    const { id } = paramsSchema.parse(req.params);
+
+    const country = await this.countryService.getById(id);
+
+    return res.status(200).json(country);
+  }
+
+  create = async (req: Request, res: Response) => {
+    const data = createCountrySchema.parse(req.body);
+    const country = await this.countryService.create(data);
+    return res.status(201).json(country);
+  };
+}
+
+
+===== src/controllers/destination.controller.ts =====
+
+import { NextFunction, Request, Response } from "express";
+import z from "zod";
+import { createDestinationSchema } from "../dtos/createDestination.dto";
+import { updateDestinationSchema } from "../dtos/updateDestination.dto";
+import { DestinationService } from "../services/destination.service";
+
+const paramsSchema = z.object({
+    id: z.uuid()
+});
+
+export class DestinationController {
+    constructor(private readonly destinationService: DestinationService = new DestinationService()) { }
+
+
+
+    get = async (req: Request, res: Response) => {
+        let limit = Number(req.query.limit);
+        let page = Number(req.query.page);
+
+        if (Number.isNaN(limit) || limit <= 0) limit = 10;
+        if (Number.isNaN(page) || page <= 0) page = 1;
+
+        if (limit > 50) limit = 50;
+
+        const result = await this.destinationService.get(limit, page);
+
+        return res.status(200).json(result);
+    }
+
+    getById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+
+        const destination = await this.destinationService.getById(id);
+
+        return res.status(200).json(destination);
+    }
+
+    updateById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params)
+        const dto = updateDestinationSchema.parse(req.body);
+
+        const dest = await this.destinationService.update(id, dto);
+
+        return res.status(200).json(dest);
+    }
+
+
+    deleteById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params)
+
+        await this.destinationService.deleteById(id);
+
+        return res.status(204).send();
+    }
+
+
+    create = async (req: Request, res: Response) => {
+        const data = createDestinationSchema.parse(req.body);
+        const dest = await this.destinationService.create(data);
+        return res.status(201).json(dest);
+    };
+}
+
+
+===== src/controllers/package.controller.ts =====
+
+import { NextFunction, Request, Response } from "express";
+import { PackageService } from "../services/package.service";
+import { updatePackageSchema } from "../dtos/updatePackage.dto";
+import { createPackageSchema } from "../dtos/createPackage.dto";
+import z from "zod";
+
+const paramsSchema = z.object({
+  id: z.uuid()
+});
+export class PackageController {
+  constructor(private readonly packageService: PackageService = new PackageService()) { }
+
+  getById = async (req: Request, res: Response) => {
+    const { id } = paramsSchema.parse(req.params)
+
+    const user = await this.packageService.getById(id);
+
+    return res.status(200).json(user);
+  }
+
+  get = async (req: Request, res: Response) => {
+    let limit = Number(req.query.limit);
+    let page = Number(req.query.page);
+
+    if (Number.isNaN(limit) || limit <= 0) limit = 10;
+    if (Number.isNaN(page) || page <= 0) page = 1;
+
+    if (limit > 50) limit = 50;
+
+    const result = await this.packageService.get(limit, page);
+
+    return res.status(200).json(result);
+  }
+
+  updateById = async (req: Request, res: Response) => {
+    const { id } = paramsSchema.parse(req.params)
+    const dto = updatePackageSchema.parse(req.body);
+
+    const pack = await this.packageService.update(id, dto);
+
+    return res.status(200).json(pack);
+  }
+
+
+  deleteById = async (req: Request, res: Response) => {
+    const { id } = paramsSchema.parse(req.params)
+
+    this.packageService.deleteById(id);
+
+    return res.status(204).send();
+  }
+
+
+  create = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = createPackageSchema.parse(req.body);
+
+      const pkg = await this.packageService.create(data);
+
+      res.status(201).json(pkg);
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+
+===== src/controllers/reservation.controller.ts =====
+
+import { Request, Response } from "express";
+import z from "zod";
+import { ReservationStatusEnum } from "../entity/reservation.entity";
+import { BadRequestError } from "../errors/badRequest.error";
+import { ReservationService } from "../services/reservation.service";
+import { User } from "../entity/user.entity";
+import { createReservationSchema } from "../dtos/createReservation.dto";
+
+const querySchema = z.object({
+    status: z.enum(ReservationStatusEnum).optional(),
+});
+
+const paramsSchema = z.object({
+    id: z.uuid()
+});
+
+export class ReservationController {
+    constructor(private readonly reservationService: ReservationService = new ReservationService()) { }
+
+    get = async (req: Request, res: Response) => {
+        let limit = Number(req.query.limit);
+        let page = Number(req.query.page);
+        const { status } = querySchema.parse(req.query);
+
+        if (Number.isNaN(limit) || limit <= 0) limit = 10;
+        if (Number.isNaN(page) || page <= 0) page = 1;
+
+        if (limit > 50) limit = 50;
+
+        const result = await this.reservationService.get(limit, page, status);
+
+        return res.status(200).json(result);
+    }
+
+
+    getById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+
+        const result = await this.reservationService.getById(id);
+
+        return res.status(200).json(result);
+    }
+
+    changeStatusById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+        const { status } = querySchema.parse(req.query);
+
+        if (!status) throw new BadRequestError("Status is required");
+
+        const user = await this.reservationService.update(id, status);
+
+        return res.status(200).json(user);
+    }
+
+    deleteById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params)
+        const user = req.user! as User;
+
+        this.reservationService.deleteById(id, user.id, user.role.name);
+
+        return res.status(204).send();
+    }
+
+    create = async (req: Request, res: Response) => {
+        const dto = createReservationSchema.parse(req.body);
+        const user = req.user! as User;
+
+        const reservation = await this.reservationService.create(dto, user.id);
+
+        return res.status(201).json(reservation);
+    }
+
+}
+
+===== src/controllers/user.controller.ts =====
+
+import { NextFunction, Request, Response } from "express";
+import { z } from "zod";
+import { updateUserSchema } from "../dtos/updateUser.dto";
+import { UserService } from "../services/user.service";
+import { createUserSchema } from "../dtos/createUser.dto";
+
+const paramsSchema = z.object({
+    id: z.uuid()
+});
+export class UserController {
+    constructor(private readonly userService: UserService = new UserService()) { }
+
+    getById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+
+        const user = await this.userService.getById(id);
+
+        return res.status(200).json(user);
+    }
+
+    deleteById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+
+        await this.userService.deleteById(id);
+
+        return res.status(204).send();
+    }
+
+    updateById = async (req: Request, res: Response) => {
+        const { id } = paramsSchema.parse(req.params);
+        const dto = updateUserSchema.parse(req.body);
+
+        const user = await this.userService.update(id, dto);
+
+        return res.status(200).json(user);
+    }
+
+    create = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = createUserSchema.parse(req.body);
+
+      const user = await this.userService.create(data);
+
+      const safeUser = {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role?.name,
+      };
+
+      res.status(201).json(safeUser);
+    } catch (error) {
+      next(error);
+    }
+  };
+}
+
+
+===== src/database.ts =====
+
+import { DataSource } from "typeorm";
+import { env } from './config/env';
+import { User } from "./entity/user.entity";
+import { CategoryPackage } from "./entity/categoryPackage.entity";
+import { Country } from "./entity/country.entity";
+import { Destination } from "./entity/destination.entity";
+import { Package } from "./entity/package.entity";
+import { Reservation } from "./entity/reservation.entity";
+import { Role } from "./entity/role.entity";
+
+
+export const AppDataSource = new DataSource({
+    type: "postgres",
+    host: env.POSTGRE_HOST,
+    port: Number(env.POSTGRE_PORT),
+    username: env.POSTGRE_USER,
+    password: env.POSTGRE_PASSWORD,
+    database: env.POSTGRE_DB,
+    synchronize: true,
+    logging: true,
+    entities: [User, CategoryPackage, Country, Destination, Package, Reservation, Role],
+    subscribers: [],
+    migrations: [],
+});
+
+export const initDB = async () => {
+    try {
+        await AppDataSource.initialize();
+    } catch (e) {
+        console.error("Init DB err", e);
+        throw e;
+    }
+}
+
+
+
+===== src/dtos/categoryPackageResponse.dto.ts =====
+
+import z from "zod";
+
+export const categoryPackageResponseSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  description: z.string(),
+  packages: z.array(
+    z.object({
+      id: z.uuid(),
+      title: z.string(),
+      price: z.number(),
+    })
+  ),
+});
+
+export type CategoryPackageResponseDto = z.infer<typeof categoryPackageResponseSchema>;
+
+===== src/dtos/countryResponse.dto.ts =====
+
+import z from "zod";
+
+export const countryResponseSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  isoCode: z.string()
+});
+
+export type CountryResponseDto = z.infer<typeof countryResponseSchema>;
+
+===== src/dtos/createCategoryPackage.dto.ts =====
+
+import z from "zod";
+
+export const createCategoryPackageSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+});
+
+export type CreateCategoryPackageDto = z.infer<typeof createCategoryPackageSchema>;
+
+===== src/dtos/createCountry.dto.ts =====
+
+import { z } from "zod";
+
+export const createCountrySchema = z.object({
+    name: z.string().min(2).max(50),
+    isoCode: z.string().length(3).toUpperCase(),
+});
+
+export type CreateCountryDto = z.infer<typeof createCountrySchema>;
+
+===== src/dtos/createDestination.dto.ts =====
+
+import { z } from "zod";
+
+export const createDestinationSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  countryId: z.uuid(),
+});
+
+export type CreateDestinationDto = z.infer<typeof createDestinationSchema>;
+
+===== src/dtos/createPackage.dto.ts =====
+
+import { z } from "zod";
+
+export const createPackageSchema = z.object({
+    title: z.string().min(1),
+    description: z.string().min(1),
+    price: z.number().int().min(0),
+    startDate: z.coerce.date(),
+    endDate: z.coerce.date(),
+    maxSlots: z.coerce.number().min(1),
+    imageUrl: z.string(),
+    categoryPackageId: z.uuid(),
+    destinationId: z.uuid(),
+});
+
+
+
+export type CreatePackageDto = z.infer<typeof createPackageSchema>;
+
+===== src/dtos/createReservation.dto.ts =====
+
+import { z } from "zod";
+
+
+export const createReservationSchema = z.object({
+    packageId: z.uuid(),
+    totalPassengers: z.coerce.number().int().min(1),
+    notes: z.string().max(400).optional().nullable(),
+});
+
+export type CreateReservationDto = z.infer<typeof createReservationSchema>;
+
+
+===== src/dtos/createUser.dto.ts =====
+
+import { z } from "zod";
+
+export const createUserSchema = z.object({
+  firstName: z.string().min(1),
+  lastName: z.string().min(1),
+  age: z.number().int().min(0),
+  email: z.email(),
+  password: z.string().min(6),
+  cellphoneNumber: z.string().min(6),
+  countryId: z.uuid(),
+});
+
+export type CreateUserDto = z.infer<typeof createUserSchema>;
+
+===== src/dtos/destinationResponse.dto.ts =====
+
+import z from "zod";
+
+export const destinationResponseSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  description: z.string(),
+  country: z.object({
+    id: z.uuid(),
+    name: z.string(),
+  }),
+  packages: z.array(
+    z.object({
+      id: z.uuid(),
+      title: z.string(),
+      price: z.number(),
+    })
+  ),
+});
+
+export type DestinationResponseDto = z.infer<typeof destinationResponseSchema>;
+
+===== src/dtos/findPackagesResponse.dto.ts =====
+
+import { z } from "zod";
+import { packageResponseSchema } from "./packageResponse.dto";
+
+
+export const findAllPackageSchema = z.object({
+  data: z.array(packageResponseSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+
+});
+
+
+export type PaginatedPackagesResponseDto = z.infer<typeof findAllPackageSchema>
+
+===== src/dtos/login.dto.ts =====
+
+import { z } from "zod";
+
+export const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(6),
+});
+
+export type LoginDto = z.infer<typeof loginSchema>;
+
+===== src/dtos/packageResponse.dto.ts =====
+
+import { z } from "zod";
+
+
+export const packageResponseSchema = z.object({
+    id: z.uuid(),
+    title: z.string(),
+    description: z.string(),
+    price: z.number(),
+    startDate: z.date(),
+    endDate: z.date(),
+    availableSlots: z.number(),
+    maxSlots: z.number(),
+    isActive: z.boolean(),
+    imageUrl: z.string(),
+    categoryPackage: z.object({
+        id: z.uuid(),
+        name: z.string(),
+    }),
+    destination: z.object({
+        id: z.uuid(),
+        name: z.string()
+    })
+});
+
+export type FindByIdPackageSchema = z.infer<typeof packageResponseSchema>;
+
+===== src/dtos/paginatedCategoryPackageResponse.dto.ts =====
+
+import z from "zod";
+import { categoryPackageResponseSchema } from "./categoryPackageResponse.dto";
+
+export const paginatedCategoryPackageResponseSchema = z.object({
+  data: z.array(categoryPackageResponseSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+});
+
+export type PaginatedCategoryPackageResponseDto =  z.infer<typeof paginatedCategoryPackageResponseSchema>;
+
+===== src/dtos/paginatedCountryResponse.dto.ts =====
+
+import z from "zod";
+import { countryResponseSchema } from "./countryResponse.dto";
+
+export const paginatedCountryResponseSchema = z.object({
+  data: z.array(countryResponseSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+});
+
+export type PaginatedCountryResponseDto =  z.infer<typeof paginatedCountryResponseSchema>;
+
+===== src/dtos/paginatedDestinationResponse.dto.ts =====
+
+import z from "zod";
+import { destinationResponseSchema } from "./destinationResponse.dto";
+
+export const paginatedDestinationResponseSchema = z.object({
+  data: z.array(destinationResponseSchema),
+  total: z.number(),
+  page: z.number(),
+  limit: z.number(),
+  totalPages: z.number(),
+});
+
+export type PaginatedDestinationResponseDto =
+  z.infer<typeof paginatedDestinationResponseSchema>;
+
+===== src/dtos/reservationResponse.dto.ts =====
+
+import { z } from "zod";
+import { ReservationStatusEnum } from "../entity/reservation.entity";
+
+
+
+
+
+export const reservationResponseSchema = z.object({
+    id: z.uuid(),
+    reservationDate: z.coerce.date(),
+    totalPassengers: z.number(),
+    finalPrice: z.coerce.number(),
+    notes: z.string().nullable(),
+    status: z.enum(ReservationStatusEnum),
+    destination: z.object({
+        id: z.uuid(),
+        name: z.string(),
+    }),
+    package: z.object({
+        id: z.uuid(),
+        title: z.string(),
+        startDate: z.coerce.date(),
+        endDate: z.coerce.date()
+
+    }),
+    user: z.object({
+        id: z.uuid(),
+        firstName: z.string(),
+        lastName: z.string(),
+        email: z.email(),
+    })
+});
+
+export const paginatedReservationsResponseSchema = z.object({
+    data: z.array(reservationResponseSchema),
+    total: z.number(),
+    page: z.number(),
+    limit: z.number(),
+    totalPages: z.number(),
+});
+
+export type ReservationResponseDto = z.infer<typeof reservationResponseSchema>;
+export type PaginatedReservationsResponseDto = z.infer<typeof paginatedReservationsResponseSchema>;
+
+===== src/dtos/updateCategoryPackage.dto.ts =====
+
+import z from "zod";
+
+export const updateCategoryPackageSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+});
+
+export type UpdateCategoryPackageDto =
+  z.infer<typeof updateCategoryPackageSchema>;
+
+===== src/dtos/updateDestination.dto.ts =====
+
+import z from "zod";
+
+export const updateDestinationSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().min(1).optional(),
+  countryId: z.uuid().optional(),
+});
+
+export type UpdateDestinationDto = z.infer<typeof updateDestinationSchema>;
+
+===== src/dtos/updatePackage.dto.ts =====
+
+import { z } from "zod";
+
+export const updatePackageSchema = z.object({
+    title: z.string().max(50).optional(),
+    description: z.string().max(400).optional(),
+    price: z.number().int().positive().optional(),
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().optional(),
+    availableSlots: z.number().int().nonnegative().optional(),
+    maxSlots: z.number().int().positive().optional(),
+    imageUrl: z.string().optional(),
+    isActive: z.boolean().optional(),
+})
+    .refine(
+        (data) => {
+            if (data.startDate && data.endDate) {
+                return data.startDate < data.endDate;
+            }
+            return true;
+        },
+        {
+            message: "startDate must be before endDate",
+            path: ["endDate"],
+        }
+    );
+
+export type UpdatePackageDto = z.infer<typeof updatePackageSchema>;
+
+===== src/dtos/updateUser.dto.ts =====
+
+import { z } from "zod";
+
+
+export const updateUserSchema = z.object({
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  age: z.number().int().min(0).optional(),
+  email: z.email().optional(),
+  password: z.string().min(6).optional(),
+  cellphoneNumber: z.string().min(6).optional(),
+  countryId: z.uuid().optional(),
+});
+
+export type UpdateUserDto = z.infer<typeof updateUserSchema>;
+
+===== src/dtos/userResponse.dto.ts =====
+
+import { Country } from "../entity/country.entity";
+
+export type UserResponseDto = {
+    id: string;
+    firstName: string;
+    lastName: string;
+    age: number;
+    email: string;
+    cellphoneNumber: string;
+    country: Country
+};
+
+
+
+===== src/entity/base.entity.ts =====
+
+import { CreateDateColumn, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+
+
+export abstract class Base {
+    @PrimaryGeneratedColumn("uuid")
+    id!: string;
+    @CreateDateColumn()
+    createdAt!: Date
+    @UpdateDateColumn()
+    updatedAt!: Date
+}
+
+
+
+===== src/entity/categoryPackage.entity.ts =====
+
+import { Column, Entity, OneToMany } from "typeorm";
+import { Base } from "./base.entity";
+import { Package } from "./package.entity";
+
+@Entity()
+export class CategoryPackage extends Base {
+    @Column({ type: "varchar", length: 100 })
+    name!: string;
+
+    @Column({ type: "varchar", length: 400 })
+    description!: string;
+
+    @OneToMany(() => Package, (pack: Package) => pack.categoryPackage)
+    packages!: Package[];
+
+}
+
+
+===== src/entity/country.entity.ts =====
+
+import { Column, Entity, OneToMany } from "typeorm";
+
+import { Base } from "./base.entity";
+import { Destination } from "./destination.entity";
+import { User } from "./user.entity";
+
+@Entity()
+export class Country extends Base {
+
+    @Column({ type: "varchar", length: 50, unique: true })
+    name!: string;
+
+    @Column({ type: "varchar", length: 3, unique: true })
+    isoCode!: string;
+
+    @OneToMany(() => User, (user: User) => user.country)
+    users!: User[];
+
+    @OneToMany(() => Destination, (destination: Destination) => destination.country)
+    destinations!: Destination[];
+}
+
+===== src/entity/destination.entity.ts =====
+
+import { Column, Entity, ManyToOne, OneToMany } from "typeorm";
+import { Country } from "./country.entity";
+import { Package } from "./package.entity";
+import { Base } from "./base.entity";
+
+@Entity()
+export class Destination extends Base{
+
+    @Column({ type: "varchar", length: 50 })
+    name!: string;
+
+    @Column({ type: "varchar", length: 400 })
+    description!: string;
+
+    @ManyToOne(() => Country, (country: Country) => country.destinations)
+    country!: Country;
+
+    @OneToMany(() => Package, (pack: Package) => pack.destination)
+    packages!: Package[];
+
+}
+
+
+===== src/entity/package.entity.ts =====
+
+import { Column, Entity, ManyToOne, OneToMany } from "typeorm";
+import { Base } from "./base.entity";
+import { CategoryPackage } from "./categoryPackage.entity";
+import { Destination } from "./destination.entity";
+import { Reservation } from "./reservation.entity";
+
+@Entity()
+export class Package extends Base {
+    @Column({ type: "varchar", length: 50 })
+    title!: string;
+    @Column({ type: "varchar", length: 400 })
+    description!: string;
+    @Column({ type: "int" })
+    price!: number;
+    @Column({ type: "date" })
+    startDate!: Date;
+    @Column({ type: "date" })
+    endDate!: Date;
+    @Column({ type: "int" })
+    availableSlots!: number;
+    @Column({ type: "int" })
+    maxSlots!: number;
+    @Column({ type: "varchar", length: 400 })
+    imageUrl!: string;
+    @Column({ type: "boolean" })
+    isActive!: boolean;
+    @ManyToOne(() => CategoryPackage, (categoryPackage: CategoryPackage) => categoryPackage.packages)
+    categoryPackage!: CategoryPackage;
+    @ManyToOne(() => Destination, (destination: Destination) => destination.packages)
+    destination!: Destination;
+    @OneToMany(() => Reservation, (reservation: Reservation) => reservation.package)
+    reservations!: Reservation[];
+
+}
+
+
+===== src/entity/reservation.entity.ts =====
+
+import { Column, Entity, ManyToOne } from "typeorm";
+import { Base } from "./base.entity";
+import { Package } from "./package.entity";
+import { User } from "./user.entity";
+
+export enum ReservationStatusEnum {
+    PENDING = "pending",
+    CONFIRMED = "confirmed",
+    CANCELLED = "cancelled",
+}
+
+
+@Entity()
+export class Reservation extends Base {
+
+    @Column({ type: "date" })
+    reservationDate!: Date;
+    @Column({ type: "int" })
+    totalPassengers!: number;
+    @Column({ type: "numeric", precision: 10, scale: 2 })
+    finalPrice!: number;
+    @Column({ type: "varchar", length: 400, nullable: true })
+    notes!: string | null;
+    @Column({
+        type: "enum",
+        enum: ReservationStatusEnum,
+        default: ReservationStatusEnum.PENDING,
+    })
+    status!: ReservationStatusEnum;
+    @ManyToOne(() => User, (user: User) => user.reservations)
+    user!: User;
+    @ManyToOne(() => Package, (pack: Package) => pack.reservations)
+    package!: Package;
+}
+
+
+===== src/entity/role.entity.ts =====
+
+import { Column, Entity, OneToMany } from "typeorm";
+import { Base } from "./base.entity";
+import { User } from "./user.entity";
+
+
+@Entity()
+export class Role extends Base{
+    @Column({ type: "varchar", length: 25, unique: true })
+    name!: string;
+
+    @Column({ type: "varchar", length: 400 })
+    description!: string;
+
+    @OneToMany(() => User, (user: User) => user.role)
+    users!: User[];
+
+}
+
+===== src/entity/user.entity.ts =====
+
+import { Column, DeleteDateColumn, Entity, ManyToOne, OneToMany } from "typeorm";
+import { Base } from "./base.entity";
+import { Country } from "./country.entity";
+import { Reservation } from "./reservation.entity";
+import { Role } from "./role.entity";
+
+@Entity()
+export class User extends Base {
+    @Column({ type: "varchar", length: 50 })
+    firstName!: string;
+
+    @Column({ type: "varchar", length: 50 })
+    lastName!: string;
+
+    @Column({ type: "int" })
+    age!: number;
+
+    @Column({ type: "varchar", length: 75, unique: true })
+    email!: string;
+
+    @Column({ type: "varchar", length: 100, select: false })
+    password!: string;
+
+    @Column({ type: "varchar", length: 50 })
+    cellphoneNumber!: string;
+
+    @ManyToOne(() => Role, (role) => role.users)
+    role!: Role;
+
+    @ManyToOne(() => Country, (country: Country) => country.users)
+    country!: Country;
+
+    @OneToMany(() => Reservation, (reservation: Reservation) => reservation.user)
+    reservations!: Reservation[];
+
+    @DeleteDateColumn()
+    deletedAt?: Date;
+}
+
+
+===== src/errors/badRequest.error.ts =====
+
+import { ErrorBase } from "./base.error";
+
+export class BadRequestError extends ErrorBase {
+  constructor(message = "Bad request", details?: unknown, options?: ErrorOptions) {
+    super(message, 400, details, options);
+  }
+}
+
+===== src/errors/base.error.ts =====
+
+export class ErrorBase extends Error {
+  public readonly statusCode: number;
+  public readonly isOperational: boolean;
+  public readonly details?: unknown;
+
+  constructor(
+    message: string,
+    statusCode = 500,
+    details?: unknown,
+    options?: ErrorOptions
+  ) {
+    super(message, options);
+
+    this.name = this.constructor.name;
+    this.statusCode = statusCode;
+    this.isOperational = true;
+    this.details = details;
+
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+===== src/errors/conflict.error.ts =====
+
+import { ErrorBase } from "./base.error";
+
+export class ConflictError extends ErrorBase {
+  constructor(message = "Conflict", details?: unknown, options?: ErrorOptions) {
+    super(message, 409, details, options);
+  }
+}
+
+===== src/errors/forbidden.error.ts =====
+
+import { ErrorBase } from "./base.error";
+
+
+export class ForbiddenError extends ErrorBase {
+  constructor(message = "Forbidden", details?: unknown, options?: ErrorOptions) {
+    super(message, 403, details, options);
+  }
+}
+
+===== src/errors/notFound.error.ts =====
+
+import { ErrorBase } from "./base.error";
+
+export class NotFoundError extends ErrorBase {
+  constructor(message = "Resource not found", details?: unknown, options?: ErrorOptions) {
+    super(message, 404, details, options);
+  }
+}
+
+===== src/errors/unauthorized.error.ts =====
+
+import { ErrorBase } from "./base.error";
+
+export class UnauthorizedError extends ErrorBase {
+  constructor(message = "Unauthorized", details?: unknown, options?: ErrorOptions) {
+    super(message, 401, details, options);
+  }
+}
+
+===== src/helpers/user.mapper.ts =====
+
+import { User } from "../entity/user.entity";
+import { UserResponseDto } from "../dtos/userResponse.dto"; 
+
+export function toUserResponseDto(user: User): UserResponseDto {
+    return {
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        age: user.age,
+        email: user.email,
+        cellphoneNumber: user.cellphoneNumber,
+        country: user.country
+    };
+}
+
+===== src/middleware/auth.middleware.ts =====
+
+import passport from "passport";
+
+export const authMiddleware = passport.authenticate("jwt", {
+  session: false,
+});
+
+===== src/middleware/error.middleware.ts =====
+
+import { NextFunction, Request, Response } from "express";
+import { ErrorBase } from "../errors/base.error";
+import { ZodError } from "zod";
+
+export function errorMiddleware(
+  err: unknown,
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Response {
+  if (err instanceof ErrorBase) {
+    return res.status(err.statusCode).json({
+      success: false,
+      error: {
+        name: err.name,
+        message: err.message,
+        details: err.details ?? null,
+      },
+    });
+  }
+
+  if (err instanceof ZodError) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        name: "ValidationError",
+        message: "Validation error",
+        details: err.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        })),
+      },
+    });
+  }
+
+  console.error("Unhandled error:", err);
+
+  return res.status(500).json({
+    success: false,
+    error: {
+      name: "InternalServerError",
+      message: "Internal server error",
+      details: null,
+    },
+  });
+}
+
+===== src/middleware/isAdmin.middleware.ts =====
+
+import { NextFunction, Request, Response } from "express";
+import { User } from "../entity/user.entity";
+
+export const isAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const authUser = req.user as User;
+
+  if (authUser.role.name === "ADMIN") {
+    return next();
+  }
+
+  return res.status(403).json({
+    message: "Admin privileges required",
+  });
+};
+
+===== src/middleware/isSelfOrAdmin.middleware.ts =====
+
+import { NextFunction, Request, Response } from "express";
+import { User } from "../entity/user.entity";
+
+export const isSelfOrAdmin = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  const authUser = req.user as User;
+  const targetUserId = req.params.id;
+
+  if (authUser.id === targetUserId || authUser.role?.name === "ADMIN") {
+    return next();
+  }
+
+  return res.status(403).json({
+    message: "Not Allowed",
+  });
+};
+
+===== src/middleware/validateUUID.middleware.ts =====
+
+import { NextFunction, Request, Response } from "express";
+import z from "zod";
+
+const uuidSchema = z.uuid();
+
+export const validateUUID = (
+    req: Request,
+    res: Response,
+    next: NextFunction
+) => {
+    const result = uuidSchema.safeParse(req.params.id);
+
+    if (!result.success) {
+        return res.status(400).json({
+        message: "Invalid id format",
+    });
+    }
+
+    return next();
+};
+
+===== src/repositories/categoryPackage.repository.ts =====
+
+import { Repository } from "typeorm";
+import { AppDataSource } from "../database";
+import { CategoryPackage } from "../entity/categoryPackage.entity";
+import { BadRequestError } from "../errors/badRequest.error";
+
+export class CategoryPackageRepository {
+    constructor(private readonly categoryPackageDataSource: Repository<CategoryPackage> = AppDataSource.getRepository(CategoryPackage)) { }
+
+    async find(take: number, skip: number): Promise<[CategoryPackage[], number]> {
+        return this.categoryPackageDataSource.
+            findAndCount({
+                relations: {
+                    packages: true,
+                },
+                take,
+                skip,
+                order: {
+                    createdAt: "DESC"
+                }
+            })
+    }
+
+    async findById(id: string): Promise<CategoryPackage | null> {
+        return await this.categoryPackageDataSource.findOne({
+            where: { id },
+            relations: {
+                packages: true,
+            },
+        });
+    }
+
+
+    async update(id: string, partial: Partial<CategoryPackage>): Promise<CategoryPackage | null> {
+        const entity = await this.categoryPackageDataSource.preload({ id, ...partial });
+        if (!entity) return null;
+        await this.categoryPackageDataSource.save(entity);
+        return await this.findById(id);
+    }
+
+    async delete(id: string): Promise<boolean> {
+        const savedCategoryPackageFound = await this.findById(id);
+
+        if (!savedCategoryPackageFound) return false;
+        if (savedCategoryPackageFound.packages?.length) throw new BadRequestError("Category package has associated packages");
+
+        await this.categoryPackageDataSource.remove(savedCategoryPackageFound);
+        return true;
+    }
+
+
+    createEntity(data: Partial<CategoryPackage>): CategoryPackage {
+        return this.categoryPackageDataSource.create(data);
+    }
+
+    async save(categoryPackage: CategoryPackage): Promise<CategoryPackage> {
+        return await this.categoryPackageDataSource.save(categoryPackage);
+    }
+}
+
+
+===== src/repositories/country.repository.ts =====
+
+import { Repository } from "typeorm";
+import { AppDataSource } from "../database";
+import { Country } from "../entity/country.entity";
+
+export class CountryRepository {
+    constructor(private readonly countryDataSource: Repository<Country> = AppDataSource.getRepository(Country)) { }
+
+    async find(take: number, skip: number): Promise<[Country[], number]> {
+        return await this.countryDataSource.
+            findAndCount({
+                take,
+                skip,
+                order: {
+                    createdAt: "DESC"
+                }
+            })
+    }
+
+    async findById(id: string): Promise<Country | null> {
+        return await this.countryDataSource.findOne({
+            where: { id },
+            relations: {
+                destinations: true,
+            },
+        });
+    }
+    
+    
+    createEntity(data: Partial<Country>): Country {
+        return this.countryDataSource.create(data);
+    }
+
+    async save(country: Country): Promise<Country> {
+        return await this.countryDataSource.save(country);
+    }
+
+}
+
+
+===== src/repositories/destination.repository.ts =====
+
+import { Repository } from "typeorm";
+import { AppDataSource } from "../database";
+import { Destination } from "../entity/destination.entity";
+import { BadRequestError } from "../errors/badRequest.error";
+
+export class DestinationRepository {
+    constructor(private readonly destinationDataSource: Repository<Destination> = AppDataSource.getRepository(Destination)) { }
+
+    async find(take: number, skip: number): Promise<[Destination[], number]> {
+        return await this.destinationDataSource.
+            findAndCount({
+                relations: {
+                    country: true,
+                    packages: true,
+                },
+                take,
+                skip,
+                order: {
+                    createdAt: "DESC"
+                }
+            })
+    }
+
+    async findById(id: string): Promise<Destination | null> {
+        return await this.destinationDataSource.findOne({
+            where: { id },
+            relations: {
+                country: true,
+                packages: true,
+            },
+        });
+    }
+
+
+    async update(id: string, partial: Partial<Destination>): Promise<Destination | null> {
+        const entity = await this.destinationDataSource.preload({ id, ...partial });
+        if (!entity) return null;
+        await this.destinationDataSource.save(entity);
+        return await this.findById(id);
+    }
+
+    async delete(id: string): Promise<boolean> {
+        const destinationFound = await this.findById(id);
+
+        if (!destinationFound) return false;
+        if (destinationFound.packages?.length) throw new BadRequestError("Destination has associated packages");
+
+        await this.destinationDataSource.remove(destinationFound);
+        return true;
+    }
+
+
+    createEntity(data: Partial<Destination>): Destination {
+        return this.destinationDataSource.create(data);
+    }
+
+    async save(destination: Destination): Promise<Destination> {
+        return await this.destinationDataSource.save(destination);
+    }
+}
+
+
+===== src/repositories/package.repository.ts =====
+
+import { Repository } from "typeorm";
+import { AppDataSource } from "../database";
+import { Package } from "../entity/package.entity";
+
+export class PackageRepository {
+    constructor(private readonly packageDataSource: Repository<Package> = AppDataSource.getRepository(Package)) { }
+
+    async find(take: number, skip: number): Promise<[Package[], number]> {
+        return await this.packageDataSource.
+            findAndCount({
+                where: {
+                    isActive: true
+                },
+                relations: {
+                    destination: true,
+                    categoryPackage: true,
+                },
+                take,
+                skip,
+                order: {
+                    createdAt: "DESC"
+                }
+            })
+    }
+
+    async findById(id: string): Promise<Package | null> {
+        return await this.packageDataSource.findOne({
+            where: { id },
+            relations: {
+                destination: true,
+                categoryPackage: true,
+            },
+        });
+    }
+
+
+    async update(id: string, partial: Partial<Package>): Promise<Package | null> {
+        const entity = await this.packageDataSource.preload({ id, ...partial });
+        if (!entity) return null;
+        await this.packageDataSource.save(entity);
+        return await this.findById(id);
+    }
+
+    async delete(id: string): Promise<boolean> {
+        const packageFound = await this.findById(id);
+        if (!packageFound) return false;
+        packageFound.isActive = false;
+        await this.packageDataSource.save(packageFound)
+        return true;
+    }
+
+
+    createEntity(data: Partial<Package>): Package {
+        return this.packageDataSource.create(data);
+    }
+
+    async save(pkg: Package): Promise<Package> {
+        return await this.packageDataSource.save(pkg);
+    }
+
+}
+
+
+===== src/repositories/reservation.repository.ts =====
+
+import { Repository } from "typeorm";
+import { AppDataSource } from "../database";
+import { Reservation, ReservationStatusEnum } from "../entity/reservation.entity";
+
+export class ReservationRepository {
+    constructor(private readonly reservationDataSource: Repository<Reservation> = AppDataSource.getRepository(Reservation)) { }
+
+    async find(take: number, skip: number, status?: ReservationStatusEnum): Promise<[Reservation[], number]> {
+        return await this.reservationDataSource.
+            findAndCount({
+                where: status ? { status } : {},
+                relations: {
+                    user: true,
+                    package: {
+                        destination: true,
+                        categoryPackage: true,
+                    }
+                },
+                take,
+                skip,
+                order: {
+                    createdAt: "DESC"
+                }
+            })
+    }
+
+    async findById(id: string): Promise<Reservation | null> {
+        return await this.reservationDataSource.
+            findOne({
+                where: { id },
+
+                relations: {
+                    user: true,
+                    package: {
+                        destination: true,
+                        categoryPackage: true,
+                    }
+                },
+            })
+    }
+
+    async changeStatusById(id: string, status: ReservationStatusEnum): Promise<Reservation | null> {
+        const entity = await this.reservationDataSource.preload({ id, status });
+
+        if (!entity) return null;
+
+        await this.reservationDataSource.save(entity);
+
+        return this.findById(id);
+    }
+
+    async delete(id: string): Promise<Reservation | null> {
+        const reservationFound = await this.findById(id);
+        if (!reservationFound) return null;
+
+        reservationFound.status = ReservationStatusEnum.CANCELLED;
+
+        return await this.reservationDataSource.save(reservationFound)
+    }
+
+    createEntity(data: Partial<Reservation>): Reservation {
+        return this.reservationDataSource.create(data);
+    }
+
+    async save(reservation: Reservation): Promise<Reservation> {
+        return await this.reservationDataSource.save(reservation);
+    }
+
+
+}
+
+===== src/repositories/user.repository.ts =====
+
+import { Repository } from "typeorm";
+import { AppDataSource } from "../database";
+import { User } from "../entity/user.entity";
+
+export class UserRepository {
+    constructor(private readonly userDataSource: Repository<User> = AppDataSource.getRepository(User)) { }
+
+
+    async findById(id: string): Promise<User | null> {
+        return await this.userDataSource.findOneBy({ id })
+    }
+
+    async findByEmail(email: string): Promise<User | null> {
+        return await this.userDataSource.findOne({
+            where: { email },
+            select: {
+                id: true,
+                email: true,
+                password: true,
+                role: true,
+            },
+            relations: {
+                role: true,
+            },
+        });
+    }
+
+    async update(id: string, partial: Partial<User>): Promise<User | null> {
+        const entity = await this.userDataSource.preload({ id, ...partial });
+        if (!entity) return null;
+        return await this.save(entity)
+    }
+
+    createEntity(data: Partial<User>): User {
+        return this.userDataSource.create(data);
+    }
+
+    async save(user: User): Promise<User> {
+        return await this.userDataSource.save(user);
+    }
+
+    async deleteById(id: string): Promise<boolean> {
+        const result = await this.userDataSource.softDelete({ id });
+        return result.affected ? true : false;
+    }
+
+}
+
+===== src/routes/auth.routes.ts =====
+
+import { Router } from "express";
+import { AuthController } from "../controllers/auth.controller";
+
+const authRoutes = Router()
+const controller = new AuthController();
+
+authRoutes.post("/register", controller.register)
+authRoutes.post("/login", controller.login)
+
+export default authRoutes;
+
+===== src/routes/categoryPackage.routes.ts =====
+
+import { Router } from "express";
+import { CategoryPackageController } from "../controllers/categoryPackage.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { isAdmin } from "../middleware/isAdmin.middleware";
+
+const categoryPackageRoutes = Router()
+const controller = new CategoryPackageController();
+
+categoryPackageRoutes.get("/", controller.get)
+categoryPackageRoutes.post("/", authMiddleware, isAdmin, controller.create)
+categoryPackageRoutes.put("/:id", authMiddleware, isAdmin, controller.updateById)
+categoryPackageRoutes.delete("/:id", authMiddleware, isAdmin, controller.deleteById)
+categoryPackageRoutes.get("/:id", controller.getById)
+
+export default categoryPackageRoutes;
+
+===== src/routes/country.routes.ts =====
+
+import { Router } from "express";
+import { CountryController } from "../controllers/country.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { isAdmin } from "../middleware/isAdmin.middleware";
+
+const countryRoutes = Router()
+const controller = new CountryController();
+
+countryRoutes.get("/", controller.get)
+countryRoutes.post("/", authMiddleware, isAdmin, controller.create)
+countryRoutes.get("/:id", controller.getById)
+
+export default countryRoutes;
+
+===== src/routes/destination.routes.ts =====
+
+import { Router } from "express";
+import { DestinationController } from "../controllers/destination.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { isAdmin } from "../middleware/isAdmin.middleware";
+
+const destinationRoutes = Router()
+const controller = new DestinationController();
+
+destinationRoutes.get("/", controller.get)
+destinationRoutes.post("/", authMiddleware, isAdmin, controller.create)
+destinationRoutes.put("/:id", authMiddleware, isAdmin, controller.updateById)
+destinationRoutes.delete("/:id", authMiddleware, isAdmin, controller.deleteById)
+destinationRoutes.get("/:id", controller.getById)
+
+export default destinationRoutes;
+
+===== src/routes/package.routes.ts =====
+
+import { Router } from "express";
+import { PackageController } from "../controllers/package.controller";
+import { isAdmin } from "../middleware/isAdmin.middleware";
+import { validateUUID } from "../middleware/validateUUID.middleware";
+import { authMiddleware } from "../middleware/auth.middleware";
+
+const packageRoutes = Router()
+const controller = new PackageController();
+
+packageRoutes.get("/", controller.get)
+packageRoutes.post("/", authMiddleware, isAdmin, controller.create)
+packageRoutes.get("/:id", validateUUID, controller.getById)
+packageRoutes.put("/:id",  validateUUID,authMiddleware, isAdmin, controller.updateById)
+packageRoutes.delete("/:id",  validateUUID,authMiddleware, isAdmin, controller.deleteById)
+
+export default packageRoutes;
+
+===== src/routes/reservation.routes.ts =====
+
+import { Router } from "express";
+import { ReservationController } from "../controllers/reservation.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { validateUUID } from "../middleware/validateUUID.middleware";
+
+const reservationRoutes = Router()
+const controller = new ReservationController();
+
+reservationRoutes.get("/", authMiddleware, controller.get)
+reservationRoutes.post("/", authMiddleware, controller.create)
+reservationRoutes.get("/:id", authMiddleware, validateUUID, controller.getById)
+reservationRoutes.patch("/:id", authMiddleware, validateUUID, controller.changeStatusById)
+reservationRoutes.delete("/:id", authMiddleware, controller.deleteById)
+
+
+export default reservationRoutes;
+
+===== src/routes/user.routes.ts =====
+
+import { Router } from "express";
+import { UserController } from "../controllers/user.controller";
+import { authMiddleware } from "../middleware/auth.middleware";
+import { isSelfOrAdmin } from "../middleware/isSelfOrAdmin.middleware";
+import { isAdmin } from "../middleware/isAdmin.middleware";
+
+const userRoutes = Router()
+const controller = new UserController();
+
+userRoutes.get("/:id", authMiddleware, isSelfOrAdmin, controller.getById)
+userRoutes.delete("/:id", authMiddleware, isSelfOrAdmin, controller.deleteById)
+userRoutes.put("/:id", authMiddleware, isSelfOrAdmin,  controller.updateById)
+userRoutes.post("/", authMiddleware, isAdmin,controller.create)
+
+export default userRoutes;
+
+
+
+===== src/seed.ts =====
+
+import bcrypt from "bcrypt";
+import "reflect-metadata";
+import { env } from "./config/env";
+import { AppDataSource, initDB } from "./database";
+import { CategoryPackage } from "./entity/categoryPackage.entity";
+import { Country } from "./entity/country.entity";
+import { Destination } from "./entity/destination.entity";
+import { Package } from "./entity/package.entity";
+import { Reservation, ReservationStatusEnum } from "./entity/reservation.entity";
+import { Role } from "./entity/role.entity";
+import { User } from "./entity/user.entity";
+
+console.log({
+  host: env.POSTGRE_HOST,
+  port: env.POSTGRE_PORT,
+  user: env.POSTGRE_USER,
+  db: env.POSTGRE_DB,
+});
+async function seed() {
+  await initDB();
+
+  const roleRepo = AppDataSource.getRepository(Role);
+  const countryRepo = AppDataSource.getRepository(Country);
+  const categoryRepo = AppDataSource.getRepository(CategoryPackage);
+  const destinationRepo = AppDataSource.getRepository(Destination);
+  const userRepo = AppDataSource.getRepository(User);
+  const packageRepo = AppDataSource.getRepository(Package);
+  const reservationRepo = AppDataSource.getRepository(Reservation);
+
+  console.log("🌱 Iniciando seed...");
+
+  // Limpieza en orden inverso a las relaciones
+  await AppDataSource.query(`TRUNCATE TABLE reservation CASCADE`);
+  await AppDataSource.query(`TRUNCATE TABLE package CASCADE`);
+  await AppDataSource.query(`TRUNCATE TABLE "user" CASCADE`);
+  await AppDataSource.query(`TRUNCATE TABLE destination CASCADE`);
+  await AppDataSource.query(`TRUNCATE TABLE category_package CASCADE`);
+  await AppDataSource.query(`TRUNCATE TABLE country CASCADE`);
+  await AppDataSource.query(`TRUNCATE TABLE role CASCADE`);
+  // ROLES
+  const adminRole = roleRepo.create({
+    name: "ADMIN",
+    description: "Administrador del sistema",
+  });
+
+  const userRole = roleRepo.create({
+    name: "USER",
+    description: "Usuario estándar del sistema",
+  });
+
+  await roleRepo.save([adminRole, userRole]);
+
+  // COUNTRIES
+  const argentina = countryRepo.create({
+    name: "Argentina",
+    isoCode: "ARG",
+  });
+
+  const brazil = countryRepo.create({
+    name: "Brasil",
+    isoCode: "BRA",
+  });
+
+  const chile = countryRepo.create({
+    name: "Chile",
+    isoCode: "CHL",
+  });
+
+  const uruguay = countryRepo.create({
+    name: "Uruguay",
+    isoCode: "URY",
+  });
+
+  await countryRepo.save([argentina, brazil, chile, uruguay]);
+
+  // CATEGORY PACKAGE
+  const aventura = categoryRepo.create({
+    name: "Aventura",
+    description: "Paquetes orientados a experiencias de aventura y naturaleza",
+  });
+
+  const relax = categoryRepo.create({
+    name: "Relax",
+    description: "Paquetes para descanso, playa y desconexión",
+  });
+
+  const ciudad = categoryRepo.create({
+    name: "Ciudad",
+    description: "Paquetes para turismo urbano y recorridos culturales",
+  });
+
+  await categoryRepo.save([aventura, relax, ciudad]);
+
+  // DESTINATIONS
+  const bariloche = destinationRepo.create({
+    name: "Bariloche",
+    description: "Destino de montaña con lagos, nieve y excursiones",
+    country: argentina,
+  });
+
+  const rio = destinationRepo.create({
+    name: "Rio de Janeiro",
+    description: "Playas, vida urbana y turismo clásico en Brasil",
+    country: brazil,
+  });
+
+  const santiago = destinationRepo.create({
+    name: "Santiago de Chile",
+    description: "Capital chilena con oferta urbana y cercanía a la cordillera",
+    country: chile,
+  });
+
+  const punta = destinationRepo.create({
+    name: "Punta del Este",
+    description: "Destino costero premium para relax y verano",
+    country: uruguay,
+  });
+
+  await destinationRepo.save([bariloche, rio, santiago, punta]);
+
+  // USERS
+  const hashedPassword = await bcrypt.hash("123456", 10);
+
+  const admin = userRepo.create({
+    firstName: "Admin",
+    lastName: "Sistema",
+    age: 30,
+    email: "admin@test.com",
+    password: hashedPassword,
+    cellphoneNumber: "2216000001",
+    role: adminRole,
+    country: argentina,
+  });
+
+  const user1 = userRepo.create({
+    firstName: "Agustin",
+    lastName: "Perez",
+    age: 27,
+    email: "user1@test.com",
+    password: hashedPassword,
+    cellphoneNumber: "2216000002",
+    role: userRole,
+    country: argentina,
+  });
+
+  const user2 = userRepo.create({
+    firstName: "Lucia",
+    lastName: "Gomez",
+    age: 25,
+    email: "user2@test.com",
+    password: hashedPassword,
+    cellphoneNumber: "2216000003",
+    role: userRole,
+    country: brazil,
+  });
+
+  const user3 = userRepo.create({
+    firstName: "Martin",
+    lastName: "Lopez",
+    age: 34,
+    email: "user3@test.com",
+    password: hashedPassword,
+    cellphoneNumber: "2216000004",
+    role: userRole,
+    country: uruguay,
+  });
+
+  await userRepo.save([admin, user1, user2, user3]);
+
+  // PACKAGES
+  const package1 = packageRepo.create({
+    title: "Bariloche Aventura 7 Noches",
+    description: "Incluye alojamiento, desayuno y excursiones de montaña",
+    price: 850000,
+    startDate: new Date("2026-07-10"),
+    endDate: new Date("2026-07-17"),
+    availableSlots: 18,
+    maxSlots: 20,
+    isActive: true,
+    imageUrl: "https://example.com/bariloche.jpg",
+    categoryPackage: aventura,
+    destination: bariloche,
+  });
+
+  const package2 = packageRepo.create({
+    title: "Rio Relax 5 Noches",
+    description: "Paquete con hotel frente al mar y traslado incluido",
+    price: 990000,
+    startDate: new Date("2026-09-05"),
+    endDate: new Date("2026-09-10"),
+    availableSlots: 12,
+    maxSlots: 15,
+    isActive: true,
+    imageUrl: "https://example.com/rio.jpg",
+    categoryPackage: relax,
+    destination: rio,
+  });
+
+  const package3 = packageRepo.create({
+    title: "Santiago Urbano 4 Noches",
+    description: "Escapada urbana con city tour y visitas culturales",
+    price: 720000,
+    startDate: new Date("2026-08-14"),
+    endDate: new Date("2026-08-18"),
+    availableSlots: 10,
+    maxSlots: 10,
+    isActive: true,
+    imageUrl: "https://example.com/santiago.jpg",
+    categoryPackage: ciudad,
+    destination: santiago,
+  });
+
+  await packageRepo.save([package1, package2, package3]);
+
+  // RESERVATIONS
+  const reservation1 = reservationRepo.create({
+    reservationDate: new Date("2026-04-22"),
+    totalPassengers: 2,
+    finalPrice: 1700000.0,
+    notes: "Prefiere habitación con vista al lago",
+    status: ReservationStatusEnum.PENDING,
+    user: user1,
+    package: package1,
+  });
+
+  const reservation2 = reservationRepo.create({
+    reservationDate: new Date("2026-04-22"),
+    totalPassengers: 1,
+    finalPrice: 990000.0,
+    notes: "Viaja solo, sin equipaje extra",
+    status: ReservationStatusEnum.PENDING,
+    user: user2,
+    package: package2,
+  });
+
+  await reservationRepo.save([reservation1, reservation2]);
+
+  console.log("✅ Seed ejecutada correctamente");
+  console.log("Usuarios de prueba:");
+  console.log("admin@test.com / 123456");
+  console.log("user1@test.com / 123456");
+  console.log("user2@test.com / 123456");
+  console.log("user3@test.com / 123456");
+
+  process.exit(0);
+}
+
+seed().catch((error) => {
+  console.error("❌ Error ejecutando seed:", error);
+  process.exit(1);
+});
+
+===== src/services/auth.service.ts =====
+
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { AppDataSource } from "../database";
+import { CreateUserDto } from "../dtos/createUser.dto";
+import { Role } from "../entity/role.entity";
+import { User } from "../entity/user.entity";
+import { UnauthorizedError } from "../errors/unauthorized.error";
+import { UserRepository } from "../repositories/user.repository";
+import { UserService } from "./user.service";
+import { LoginDto } from "../dtos/login.dto";
+import { ConflictError } from "../errors/conflict.error";
+
+export class AuthService {
+    constructor(
+        private readonly userService: UserService = new UserService(),
+        private readonly userRepository: UserRepository = new UserRepository()
+    ) { }
+
+
+    async login(loginCreds: LoginDto): Promise<string> {
+        const user = await this.userRepository.findByEmail(loginCreds.email);
+        if (!user) throw new UnauthorizedError("Invalid Credentials");
+
+        const isValid = await bcrypt.compare(loginCreds.password, user.password);
+
+        if (!isValid) throw new UnauthorizedError("Invalid Credentials");
+
+
+        const accessToken = jwt.sign(
+            { sub: user.id },
+            process.env.JWT_SECRET!,
+            { expiresIn: "1h" }
+        );
+
+        return accessToken
+    }
+
+    async register(createUserDto: CreateUserDto): Promise<User> {
+        const existingUser = await this.userRepository.findByEmail(createUserDto.email);
+
+        if (existingUser) {
+            throw new ConflictError(`Email ${createUserDto.email} has been taken`);
+        }
+
+        return await this.userService.create(createUserDto);
+    }
+
+}
+
+===== src/services/categoryPackage.service.ts =====
+
+import { CategoryPackageResponseDto } from "../dtos/categoryPackageResponse.dto";
+import { CreateCategoryPackageDto } from "../dtos/createCategoryPackage.dto";
+import { PaginatedCategoryPackageResponseDto } from "../dtos/paginatedCategoryPackageResponse.dto";
+import { UpdateCategoryPackageDto } from "../dtos/updateCategoryPackage.dto";
+import { CategoryPackage } from "../entity/categoryPackage.entity";
+import { NotFoundError } from "../errors/notFound.error";
+import { CategoryPackageRepository } from "../repositories/categoryPackage.repository";
+
+
+
+export class CategoryPackageService {
+    constructor(
+        private readonly categoryPackageRepository: CategoryPackageRepository = new CategoryPackageRepository()) { }
+
+
+    async get(limit: number, page: number): Promise<PaginatedCategoryPackageResponseDto> {
+        const limitSafe = Math.min(limit, 50);
+        const skip = (page - 1) * limitSafe;
+
+        const [categoryPackages, total] = await this.categoryPackageRepository.find(limitSafe, skip);
+
+        return {
+            data: categoryPackages.map((categoryPackage) => this.toCategoryPackageResponseDto(categoryPackage)),
+            total,
+            page,
+            limit: limitSafe,
+            totalPages: Math.ceil(total / limitSafe)
+        }
+
+    }
+
+    async getById(id: string): Promise<CategoryPackageResponseDto> {
+        const categoryPackageFound = await this.categoryPackageRepository.findById(id);
+        if (!categoryPackageFound) throw new NotFoundError(`Category Package with id: ${id} not found`);
+        return this.toCategoryPackageResponseDto(categoryPackageFound);
+    }
+
+    async update(id: string, updateCategoryPackageDto: UpdateCategoryPackageDto): Promise<CategoryPackageResponseDto> {
+        const categoryPackageFound = await this.categoryPackageRepository.update(id, updateCategoryPackageDto);
+        if (!categoryPackageFound) throw new NotFoundError(`Category Package with id: ${id} not found`);
+
+        return this.toCategoryPackageResponseDto(categoryPackageFound);
+    }
+
+    async deleteById(id: string): Promise<void> {
+        const deleted = await this.categoryPackageRepository.delete(id);
+        if (!deleted) throw new NotFoundError(`Category Package with id: ${id} not found`);
+    }
+
+
+    async create(createCategoryPackageDto: CreateCategoryPackageDto): Promise<CategoryPackageResponseDto> {
+        const savedCategoryPackage = this.categoryPackageRepository.createEntity({
+            name: createCategoryPackageDto.name,
+            description: createCategoryPackageDto.description,
+        });
+        const savedsavedCategoryPackage = await this.categoryPackageRepository.save(savedCategoryPackage);
+
+        return this.toCategoryPackageResponseDto(savedsavedCategoryPackage);
+    }
+
+    private toCategoryPackageResponseDto(categoryPackage: CategoryPackage): CategoryPackageResponseDto {
+        return {
+            id: categoryPackage.id,
+            name: categoryPackage.name,
+            description: categoryPackage.description,
+            packages: categoryPackage.packages?.map(pkg => ({
+                id: pkg.id,
+                title: pkg.title,
+                price: pkg.price
+            })) ?? []
+        };
+    }
+}
+
+===== src/services/country.service.ts =====
+
+import { CountryResponseDto } from "../dtos/countryResponse.dto";
+import { CreateCountryDto } from "../dtos/createCountry.dto";
+import { PaginatedCountryResponseDto } from "../dtos/paginatedCountryResponse.dto";
+import { Country } from "../entity/country.entity";
+import { NotFoundError } from "../errors/notFound.error";
+import { CountryRepository } from "../repositories/country.repository";
+
+
+
+export class CountryService {
+    constructor(
+        private readonly countryRepository: CountryRepository = new CountryRepository()) { }
+
+
+    async get(limit: number, page: number): Promise<PaginatedCountryResponseDto> {
+        const limitSafe = Math.min(limit, 50);
+        const skip = (page - 1) * limitSafe;
+
+        const [countries, total] = await this.countryRepository.find(limitSafe, skip);
+
+        return {
+            data: countries.map((country) => this.toCountryResponseDto(country)),
+            total,
+            page,
+            limit: limitSafe,
+            totalPages: Math.ceil(total / limitSafe)
+        }
+
+    }
+
+    async getById(id: string): Promise<CountryResponseDto> {
+        const countryFound = await this.countryRepository.findById(id);
+        if (!countryFound) throw new NotFoundError(`Country with id: ${id} not found`);
+        return this.toCountryResponseDto(countryFound);
+    }
+
+    async create(createCountryDto: CreateCountryDto): Promise<CountryResponseDto> {
+        const country = this.countryRepository.createEntity({
+            name: createCountryDto.name,
+            isoCode: createCountryDto.isoCode
+        });
+        const savedCountry = await this.countryRepository.save(country);
+
+        return this.toCountryResponseDto(savedCountry);
+    }
+
+    private toCountryResponseDto(country: Country): CountryResponseDto {
+        return {
+            id: country.id,
+            name: country.name,
+            isoCode: country.isoCode,
+        };
+    }
+}
+
+===== src/services/destination.service.ts =====
+
+import { CreateDestinationDto } from "../dtos/createDestination.dto";
+import { DestinationResponseDto } from "../dtos/destinationResponse.dto";
+import { PaginatedDestinationResponseDto } from "../dtos/paginatedDestinationResponse.dto";
+import { UpdateDestinationDto } from "../dtos/updateDestination.dto";
+import { Destination } from "../entity/destination.entity";
+import { NotFoundError } from "../errors/notFound.error";
+import { CountryRepository } from "../repositories/country.repository";
+import { DestinationRepository } from "../repositories/destination.repository";
+
+
+
+export class DestinationService {
+    constructor(
+        private readonly destinationRepository: DestinationRepository = new DestinationRepository(),
+        private readonly countryRepository: CountryRepository = new CountryRepository()) { }
+
+
+    async get(limit: number, page: number): Promise<PaginatedDestinationResponseDto> {
+        const limitSafe = Math.min(limit, 50);
+        const skip = (page - 1) * limitSafe;
+
+        const [destinations, total] = await this.destinationRepository.find(limitSafe, skip);
+
+        return {
+            data: destinations.map((dest) => this.toDestinationResponseDto(dest)),
+            total,
+            page,
+            limit: limitSafe,
+            totalPages: Math.ceil(total / limitSafe)
+        }
+
+    }
+
+    async getById(id: string): Promise<DestinationResponseDto> {
+        const destinationFound = await this.destinationRepository.findById(id);
+        if (!destinationFound) throw new NotFoundError(`Destination with id: ${id} not found`);
+        return this.toDestinationResponseDto(destinationFound);
+    }
+
+
+    async update(id: string, updateDestinationDto: UpdateDestinationDto): Promise<DestinationResponseDto> {
+        const destinationFound = await this.destinationRepository.update(id, updateDestinationDto);
+        if (!destinationFound) throw new NotFoundError(`Destination with id: ${id} not found`);
+
+        return this.toDestinationResponseDto(destinationFound);
+    }
+
+    async deleteById(id: string): Promise<void> {
+        const deleted = await this.destinationRepository.delete(id);
+        if (!deleted) throw new NotFoundError(`Destination with id: ${id} not found`);
+    }
+
+
+    async create(createDestinationDto: CreateDestinationDto): Promise<DestinationResponseDto> {
+        const country = await this.countryRepository.findById(createDestinationDto.countryId);
+
+        if (!country) throw new NotFoundError(`Country with id: ${createDestinationDto.countryId} not found`);
+
+        const dest = this.destinationRepository.createEntity({
+            name: createDestinationDto.name,
+            description: createDestinationDto.description,
+            country
+        });
+
+        const createdDestination = await this.destinationRepository.save(dest)
+
+        const destinationWithRelations = await this.destinationRepository.findById(createdDestination.id);
+
+        if (!destinationWithRelations) throw new NotFoundError(`Destination with id: ${createdDestination.id} not found`);
+
+        return this.toDestinationResponseDto(destinationWithRelations);
+    }
+
+    private toDestinationResponseDto(destination: Destination): DestinationResponseDto {
+        return {
+            id: destination.id,
+            name: destination.name,
+            description: destination.description,
+            country: {
+                id: destination.country.id,
+                name: destination.country.name
+            },
+            packages: destination.packages?.map(pkg => ({
+                id: pkg.id,
+                title: pkg.title,
+                price: pkg.price
+            })) ?? []
+        };
+    }
+}
+
+===== src/services/package.service.ts =====
+
+import z from "zod";
+import { AppDataSource } from "../database";
+import { CreatePackageDto } from "../dtos/createPackage.dto";
+import { PaginatedPackagesResponseDto } from "../dtos/findPackagesResponse.dto";
+import { packageResponseSchema } from "../dtos/packageResponse.dto";
+import { UpdatePackageDto } from "../dtos/updatePackage.dto";
+import { CategoryPackage } from "../entity/categoryPackage.entity";
+import { Destination } from "../entity/destination.entity";
+import { Package } from "../entity/package.entity";
+import { NotFoundError } from "../errors/notFound.error";
+import { PackageRepository } from "../repositories/package.repository";
+
+export type PackageResponseDto = z.infer<typeof packageResponseSchema>;
+
+
+export class PackageService {
+    constructor(private readonly packageRepository: PackageRepository = new PackageRepository()) { }
+
+
+    async get(limit: number, page: number): Promise<PaginatedPackagesResponseDto> {
+        const limitSafe = Math.min(limit, 50);
+        const skip = (page - 1) * limitSafe;
+
+        const [packages, total] = await this.packageRepository.find(limitSafe, skip);
+
+        return {
+            data: packages.map((pkg) => this.toPackageResponseDto(pkg)),
+            total,
+            page,
+            limit: limitSafe,
+            totalPages: Math.ceil(total / limitSafe)
+        }
+
+    }
+
+    async getById(id: string): Promise<PackageResponseDto> {
+        const packageFound = await this.packageRepository.findById(id);
+        if (!packageFound) throw new NotFoundError(`Package with id: ${id} not found`);
+        return this.toPackageResponseDto(packageFound);
+    }
+
+
+    async update(id: string, updatePackageDto: UpdatePackageDto): Promise<PackageResponseDto> {
+        const packageFound = await this.packageRepository.update(id, updatePackageDto);
+        if (!packageFound) throw new NotFoundError(`Package with id: ${id} not found`);
+
+        return this.toPackageResponseDto(packageFound);
+    }
+
+    async deleteById(id: string): Promise<void> {
+        const deleted = await this.packageRepository.delete(id);
+        if (!deleted) throw new NotFoundError(`Package with id: ${id} not found`);
+    }
+
+    async create(createPackageDto: CreatePackageDto): Promise<PackageResponseDto> {
+        const destinationRepo = AppDataSource.getRepository(Destination);
+        const categoryPackageRepo = AppDataSource.getRepository(CategoryPackage);
+
+        const destination = await destinationRepo.findOneBy({ id: createPackageDto.destinationId });
+        if (!destination) {
+            throw new NotFoundError("Destination not found");
+        }
+
+        const categoryPackage = await categoryPackageRepo.findOneBy({ id: createPackageDto.categoryPackageId });
+        if (!categoryPackage) {
+            throw new NotFoundError("Category package not found");
+        }
+
+        const pkg = this.packageRepository.createEntity({
+            title: createPackageDto.title,
+            description: createPackageDto.description,
+            price: createPackageDto.price,
+            startDate: createPackageDto.startDate,
+            endDate: createPackageDto.endDate,
+            maxSlots: createPackageDto.maxSlots,
+            availableSlots: createPackageDto.maxSlots,
+            imageUrl: createPackageDto.imageUrl,
+            isActive: true,
+            destination,
+            categoryPackage,
+        });
+
+        const createdPackage = await this.packageRepository.save(pkg)
+
+        return this.toPackageResponseDto(createdPackage) ;
+    }
+
+    private toPackageResponseDto(pkg: Package): PackageResponseDto {
+        return {
+            id: pkg.id,
+            title: pkg.title,
+            description: pkg.description,
+            price: pkg.price,
+            startDate: pkg.startDate,
+            endDate: pkg.endDate,
+            maxSlots: pkg.maxSlots,
+            imageUrl: pkg.imageUrl,
+            isActive: pkg.isActive,
+            availableSlots: pkg.availableSlots,
+            destination: {
+                id: pkg.destination.id,
+                name: pkg.destination.name,
+            },
+            categoryPackage: {
+                id: pkg.categoryPackage.id,
+                name: pkg.categoryPackage.name,
+            }
+        };
+    }
+}
+
+===== src/services/reservation.service.ts =====
+
+import { CreateReservationDto } from "../dtos/createReservation.dto";
+import { PaginatedReservationsResponseDto, ReservationResponseDto } from "../dtos/reservationResponse.dto";
+import { Reservation, ReservationStatusEnum } from "../entity/reservation.entity";
+import { BadRequestError } from "../errors/badRequest.error";
+import { ForbiddenError } from "../errors/forbidden.error";
+import { NotFoundError } from "../errors/notFound.error";
+import { PackageRepository } from "../repositories/package.repository";
+import { ReservationRepository } from "../repositories/reservation.repository";
+import { UserRepository } from "../repositories/user.repository";
+
+export class ReservationService {
+    constructor(
+        private readonly reservationRepository: ReservationRepository = new ReservationRepository(),
+        private readonly packageRepository = new PackageRepository(),
+        private readonly userRepository = new UserRepository()) { }
+
+    async get(limit: number, page: number, status?: ReservationStatusEnum): Promise<PaginatedReservationsResponseDto> {
+        const limitSafe = Math.min(limit, 50);
+        const skip = (page - 1) * limitSafe;
+
+        const [reservations, total] = await this.reservationRepository.find(limitSafe, skip, status);
+
+        return {
+            data: reservations.map((reservation) => this.toReservationResponseDto(reservation)),
+            total,
+            page,
+            limit: limitSafe,
+            totalPages: Math.ceil(total / limitSafe)
+        }
+    }
+
+    async getById(id: string): Promise<ReservationResponseDto> {
+        const reservationFound = await this.reservationRepository.findById(id);
+
+        if (!reservationFound) throw new NotFoundError(`Reservation with id: ${id} not found`);
+
+        return this.toReservationResponseDto(reservationFound);
+    }
+
+    async update(id: string, status: ReservationStatusEnum): Promise<ReservationResponseDto> {
+        const reservation = await this.reservationRepository.changeStatusById(id, status);
+
+        if (!reservation) throw new NotFoundError(`Reservation with id: ${id} not found`);
+
+        return this.toReservationResponseDto(reservation);
+    }
+
+    async deleteById(id: string, userId: string, role: string): Promise<void> {
+        const reservation = await this.reservationRepository.findById(id);
+
+        if (!reservation) throw new NotFoundError(`Reservation with id: ${id} not found`);
+        if (reservation.user.id !== userId && role !== "ADMIN") throw new ForbiddenError();
+        if (reservation.status === ReservationStatusEnum.CANCELLED) return;
+        
+        reservation.package.availableSlots += reservation.totalPassengers;
+
+        await this.packageRepository.save(reservation.package);
+
+        await this.reservationRepository.delete(id);
+    }
+
+    async create(createReservationDto: CreateReservationDto, userId: string): Promise<ReservationResponseDto> {
+
+        const packageFound = await this.packageRepository.findById(createReservationDto.packageId);
+
+        if (!packageFound) throw new NotFoundError(`Package with id: ${createReservationDto.packageId} not found`);
+
+        if (packageFound.availableSlots < createReservationDto.totalPassengers) {
+            throw new BadRequestError(`Only ${packageFound.availableSlots} slots left`)
+        }
+
+        const userFound = await this.userRepository.findById(userId);
+
+        if (!userFound) throw new NotFoundError(`User with id: ${userId} not found`);
+
+        const reservation = await this.reservationRepository.createEntity({
+            reservationDate: new Date(),
+            notes: createReservationDto.notes,
+            finalPrice: packageFound.price * createReservationDto.totalPassengers,
+            package: packageFound,
+            user: userFound,
+            status: ReservationStatusEnum.PENDING,
+            totalPassengers: createReservationDto.totalPassengers,
+        })
+
+        const createdReservation = await this.reservationRepository.save(reservation)
+
+        packageFound.availableSlots -= createReservationDto.totalPassengers;
+        await this.packageRepository.save(packageFound);
+
+        return this.toReservationResponseDto(createdReservation);
+    }
+
+    private toReservationResponseDto(reservation: Reservation): ReservationResponseDto {
+        return {
+            id: reservation.id,
+            reservationDate: reservation.reservationDate,
+            totalPassengers: reservation.totalPassengers,
+            finalPrice: reservation.finalPrice,
+            notes: reservation.notes,
+            status: reservation.status,
+            package: {
+                id: reservation.package.id,
+                title: reservation.package.title,
+                startDate: reservation.package.startDate,
+                endDate: reservation.package.endDate,
+            },
+            user: {
+                id: reservation.user.id,
+                firstName: reservation.user.firstName,
+                lastName: reservation.user.lastName,
+                email: reservation.user.email,
+            },
+            destination: {
+                id: reservation.package.destination.id,
+                name: reservation.package.destination.name
+            }
+        };
+    }
+}
+
+===== src/services/user.service.ts =====
+
+import bcrypt from "bcrypt";
+import { CreateUserDto } from "../dtos/createUser.dto";
+import { UpdateUserDto } from "../dtos/updateUser.dto";
+import { Role } from "../entity/role.entity";
+import { User } from "../entity/user.entity";
+import { NotFoundError } from "../errors/notFound.error";
+import { UserRepository } from "../repositories/user.repository";
+import { AppDataSource } from "../database";
+
+export class UserService {
+    constructor(private readonly userRepository: UserRepository = new UserRepository()) { }
+
+    async getById(id: string): Promise<User> {
+        const userFound = await this.userRepository.findById(id);
+        if (!userFound) throw new NotFoundError(`User with id: ${id} not found`);
+        return userFound;
+    }
+
+    async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+        const user = await this.userRepository.update(id, updateUserDto);
+        if (!user) throw new NotFoundError(`User with id: ${id} not found`);
+        return user;
+    }
+
+    async deleteById(id: string): Promise<void> {
+        const deleted = await this.userRepository.deleteById(id);
+        if (!deleted) throw new NotFoundError(`User with id: ${id} not found`);
+    }
+
+    async create(createUserDto: CreateUserDto & { role?: Role }): Promise<User> {
+        const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+
+        const roleRepo = AppDataSource.getRepository(Role);
+
+        let role = createUserDto.role;
+
+        if (!role) {
+            const foundRole = await roleRepo.findOneBy({ name: "USER" });
+
+            if (!foundRole) {
+                throw new Error("Default role not configured");
+            }
+
+            role = foundRole;
+        }
+
+        const user = this.userRepository.createEntity({
+            ...createUserDto,
+            password: hashedPassword,
+            role,
+        });
+
+        return await this.userRepository.save(user);
+    }
+}

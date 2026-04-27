@@ -14,6 +14,6 @@ export const isSelfOrAdmin = (
   }
 
   return res.status(403).json({
-    message: "Forbidden",
+    message: "Not Allowed",
   });
 };

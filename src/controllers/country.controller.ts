@@ -1,65 +1,40 @@
-export class CountryController {
-    constructor() {}
-}
-
-
-/*
-import { NextFunction, Request, Response } from "express";
-import { z } from "zod";
-import { updateUserSchema } from "../dtos/updateUser.dto";
-import { UserService } from "../services/user.service";
-import { createUserSchema } from "../dtos/createUser.dto";
+import { Request, Response } from "express";
+import z from "zod";
+import { createCountrySchema } from "../dtos/createCountry.dto";
+import { CountryService } from "../services/country.service";
 
 const paramsSchema = z.object({
-    id: z.uuid()
+  id: z.uuid()
 });
-export class UserController {
-    constructor(private readonly userService: UserService = new UserService()) { }
 
-    getById = async (req: Request, res: Response) => {
-        const { id } = paramsSchema.parse(req.params);
+export class CountryController {
+  constructor(private readonly countryService: CountryService = new CountryService()) { }
 
-        const user = await this.userService.getById(id);
+  get = async (req: Request, res: Response) => {
+    let limit = Number(req.query.limit);
+    let page = Number(req.query.page);
 
-        return res.status(200).json(user);
-    }
+    if (Number.isNaN(limit) || limit <= 0) limit = 10;
+    if (Number.isNaN(page) || page <= 0) page = 1;
 
-    deleteById = async (req: Request, res: Response) => {
-        const { id } = paramsSchema.parse(req.params);
+    if (limit > 50) limit = 50;
 
-        const user = await this.userService.deleteById(id);
+    const result = await this.countryService.get(limit, page);
 
-        return res.status(204).send();
-    }
+    return res.status(200).json(result);
+  }
 
-    updateById = async (req: Request, res: Response) => {
-        const { id } = paramsSchema.parse(req.params);
-        const dto = updateUserSchema.parse(req.body);
+  getById = async (req: Request, res: Response) => {
+    const { id } = paramsSchema.parse(req.params);
 
-        const user = await this.userService.update(id, dto);
+    const country = await this.countryService.getById(id);
 
-        return res.status(200).json(user);
-    }
+    return res.status(200).json(country);
+  }
 
-    create = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const data = createUserSchema.parse(req.body);
-
-      const user = await this.userService.create(data);
-
-      const safeUser = {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role?.name,
-      };
-
-      res.status(201).json(safeUser);
-    } catch (error) {
-      next(error);
-    }
+  create = async (req: Request, res: Response) => {
+    const data = createCountrySchema.parse(req.body);
+    const country = await this.countryService.create(data);
+    return res.status(201).json(country);
   };
 }
-
-*/ 

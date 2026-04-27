@@ -8,8 +8,6 @@ export class AuthController {
 
     login = async (req: Request, res: Response, next: NextFunction) => {
         try {
-            console.log("test");
-
             const data = loginSchema.parse(req.body);
             const result = await this.authService.login(data);
             res.status(201).json(result);

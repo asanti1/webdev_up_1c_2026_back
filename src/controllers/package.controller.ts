@@ -2,13 +2,16 @@ import { NextFunction, Request, Response } from "express";
 import { PackageService } from "../services/package.service";
 import { updatePackageSchema } from "../dtos/updatePackage.dto";
 import { createPackageSchema } from "../dtos/createPackage.dto";
+import z from "zod";
 
-
+const paramsSchema = z.object({
+  id: z.uuid()
+});
 export class PackageController {
   constructor(private readonly packageService: PackageService = new PackageService()) { }
 
   getById = async (req: Request, res: Response) => {
-    const id = req.params.id as string;
+    const { id } = paramsSchema.parse(req.params)
 
     const user = await this.packageService.getById(id);
 
@@ -30,7 +33,7 @@ export class PackageController {
   }
 
   updateById = async (req: Request, res: Response) => {
-    const id = req.params.id as string;
+    const { id } = paramsSchema.parse(req.params)
     const dto = updatePackageSchema.parse(req.body);
 
     const pack = await this.packageService.update(id, dto);
@@ -40,9 +43,9 @@ export class PackageController {
 
 
   deleteById = async (req: Request, res: Response) => {
-    const id = req.params.id as string;
+    const { id } = paramsSchema.parse(req.params)
 
-    this.packageService.deleteById(id);
+    await this.packageService.deleteById(id);
 
     return res.status(204).send();
   }

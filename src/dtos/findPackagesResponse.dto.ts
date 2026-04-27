@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { packageResponseSchema } from "./packageResponseSchema.dto";
+import { packageResponseSchema } from "./packageResponse.dto";
 
 
 export const findAllPackageSchema = z.object({

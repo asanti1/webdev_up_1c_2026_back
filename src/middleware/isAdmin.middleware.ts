@@ -13,6 +13,6 @@ export const isAdmin = (
   }
 
   return res.status(403).json({
-    message: "Forbidden",
+    message: "Admin privileges required",
   });
 };
