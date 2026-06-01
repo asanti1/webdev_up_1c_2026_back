@@ -8,11 +8,27 @@ import { User } from "../entity/user.entity";
 import { NotFoundError } from "../errors/notFound.error";
 import { CountryRepository } from "../repositories/country.repository";
 import { UserRepository } from "../repositories/user.repository";
+import { PaginatedUserResponseDto } from "../dtos/paginatedUserResponse.dto";
 
 export class UserService {
     constructor(
         private readonly userRepository: UserRepository = new UserRepository(),
         private readonly countryRepository: CountryRepository = new CountryRepository()) { }
+
+    async get(limit: number, page: number): Promise<PaginatedUserResponseDto> {
+        const limitSafe = Math.min(limit, 50);
+        const skip = (page - 1) * limitSafe;
+
+        const [users, total] = await this.userRepository.find(limitSafe, skip);
+
+        return {
+            data: users.map((u) => this.toUserResponseDto(u)),
+            total,
+            page,
+            limit: limitSafe,
+            totalPages: Math.ceil(total / limitSafe)
+        }
+    }
 
     async getById(id: string): Promise<User> {
         const userFound = await this.userRepository.findById(id);

@@ -7,6 +7,7 @@ const countryRoutes = Router()
 const controller = new CountryController();
 
 countryRoutes.get("/", controller.get)
+countryRoutes.get("/getAll", controller.getAll)
 countryRoutes.post("/", authMiddleware, isAdmin, controller.create)
 countryRoutes.get("/:id", controller.getById)
 

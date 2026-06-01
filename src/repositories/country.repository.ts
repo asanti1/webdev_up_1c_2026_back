@@ -16,6 +16,10 @@ export class CountryRepository {
             })
     }
 
+    async findAll(): Promise<Country[]> {
+        return await this.countryDataSource.find();
+    }
+
     async findById(id: string): Promise<Country | null> {
         return await this.countryDataSource.findOne({
             where: { id },
@@ -24,8 +28,8 @@ export class CountryRepository {
             },
         });
     }
-    
-    
+
+
     createEntity(data: Partial<Country>): Country {
         return this.countryDataSource.create(data);
     }

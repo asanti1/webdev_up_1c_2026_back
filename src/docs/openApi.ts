@@ -27,13 +27,14 @@ import { registerDestinationPaths } from "./paths/destination.paths";
 import { registerReservationPaths } from "./paths/reservation.paths";
 import { registerUserPaths } from "./paths/user.paths";
 import { registerPackagePaths } from "./paths/package.paths";
+import { paginatedUserResponseSchema } from "../dtos/paginatedUserResponse.dto";
 
 const registry = new OpenAPIRegistry();
 
 registry.register("CreateUserDto", createUserSchema);
 registry.register("LoginDto", loginSchema);
 registry.register("UserResponseDto", userResponseSchema);
-
+registry.register("PaginatedUserResponseDto", paginatedUserResponseSchema);
 
 registry.register("CreatePackageDto", createPackageSchema);
 registry.register("UpdatePackageDto", updatePackageSchema);

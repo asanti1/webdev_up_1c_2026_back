@@ -5,6 +5,22 @@ import { User } from "../entity/user.entity";
 export class UserRepository {
     constructor(private readonly userDataSource: Repository<User> = AppDataSource.getRepository(User)) { }
 
+    async find(take: number, skip: number): Promise<[User[], number]> {
+        return await this.userDataSource.
+            findAndCount({                
+                relations: {
+                    country: true,
+                    reservations: true,
+                    role: true
+                },
+                take,
+                skip,
+                order: {
+                    createdAt: "DESC"
+                }
+            })
+    }
+
 
     async findById(id: string): Promise<User | null> {
         return await this.userDataSource.findOneBy({ id })
@@ -15,9 +31,15 @@ export class UserRepository {
             where: { email },
             select: {
                 id: true,
+                firstName: true,
+                lastName: true,
                 email: true,
                 password: true,
-                role: true,
+                role: {
+                    id: true,
+                    name: true,
+                },
+                cellphoneNumber: true
             },
             relations: {
                 role: true,
@@ -30,6 +52,7 @@ export class UserRepository {
         if (!entity) return null;
         return await this.save(entity)
     }
+
     createEntity(data: Partial<User>): User {
         return this.userDataSource.create(data);
     }
@@ -42,5 +65,4 @@ export class UserRepository {
         const result = await this.userDataSource.softDelete({ id });
         return result.affected ? true : false;
     }
-
 }

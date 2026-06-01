@@ -3,8 +3,37 @@ import { z } from "../../config/zod.config";
 import { createUserSchema } from "../../dtos/createUser.dto";
 import { updateUserSchema } from "../../dtos/updateUser.dto";
 import { userResponseSchema } from "../../dtos/userResponse.dto";
+import { paginatedUserResponseSchema } from "../../dtos/paginatedUserResponse.dto";
 
 export function registerUserPaths(registry: OpenAPIRegistry) {
+    registry.registerPath({
+        method: "get",
+        path: "/users/",
+        tags: ["Users"],
+        summary: "Obtener usuarios de forma paginada",
+        description: "Ruta solamente utilizable por ADMIN, sirve para obtener usuarios de forma paginada.",
+        security: [{ bearerAuth: [] }],
+        request: {
+            params: z.object({ id: z.uuid() })
+        },
+        responses: {
+            200: {
+                description: "Usuario encontrado",
+                content: {
+                    "application/json": {
+                        schema: paginatedUserResponseSchema,
+                    },
+                },
+            },
+            401: {
+                description: "Token ausente o inválido",
+            },
+            403: {
+                description: "El usuario autenticado no tiene permiso para consultar este endpoint",
+            },
+        },
+    });
+
     registry.registerPath({
         method: "get",
         path: "/users/{id}",

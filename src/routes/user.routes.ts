@@ -7,6 +7,7 @@ import { isAdmin } from "../middleware/isAdmin.middleware";
 const userRoutes = Router()
 const controller = new UserController();
 
+userRoutes.get("/", authMiddleware, isAdmin, controller.get)
 userRoutes.get("/:id", authMiddleware, isSelfOrAdmin, controller.getById)
 userRoutes.delete("/:id", authMiddleware, isSelfOrAdmin, controller.deleteById)
 userRoutes.put("/:id", authMiddleware, isSelfOrAdmin,  controller.updateById)

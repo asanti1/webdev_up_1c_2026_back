@@ -8,6 +8,7 @@ const reservationRoutes = Router()
 const controller = new ReservationController();
 
 reservationRoutes.get("/", authMiddleware, controller.get)
+reservationRoutes.get("/getAllMe", authMiddleware, controller.getAllMe)
 reservationRoutes.post("/", authMiddleware, controller.create)
 reservationRoutes.get("/:id", authMiddleware, validateUUID, controller.getById)
 reservationRoutes.patch("/:id", authMiddleware, validateUUID, isSelfOrAdmin, controller.changeStatusById)

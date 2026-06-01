@@ -23,6 +23,24 @@ export class ReservationRepository {
                 }
             })
     }
+    async findAllByUserId(take: number, skip: number, id: string): Promise<[Reservation[], number]> {
+        return await this.reservationDataSource.
+            findAndCount({
+                where: { user: { id } },    
+                relations: {
+                    user: true,
+                    package: {
+                        destination: true,
+                        categoryPackage: true,
+                    }
+                },
+                take,
+                skip,
+                order: {
+                    createdAt: "DESC"
+                }
+            })
+    }
 
     async findById(id: string): Promise<Reservation | null> {
         return await this.reservationDataSource.

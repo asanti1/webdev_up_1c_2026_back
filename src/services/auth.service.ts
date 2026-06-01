@@ -1,15 +1,12 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { AppDataSource } from "../database";
 import { CreateUserDto } from "../dtos/createUser.dto";
-import { Role } from "../entity/role.entity";
-import { User } from "../entity/user.entity";
+import { LoginDto } from "../dtos/login.dto";
+import { UserResponseDto } from "../dtos/userResponse.dto";
+import { ConflictError } from "../errors/conflict.error";
 import { UnauthorizedError } from "../errors/unauthorized.error";
 import { UserRepository } from "../repositories/user.repository";
 import { UserService } from "./user.service";
-import { LoginDto } from "../dtos/login.dto";
-import { ConflictError } from "../errors/conflict.error";
-import { UserResponseDto } from "../dtos/userResponse.dto";
 
 export class AuthService {
     constructor(
@@ -28,11 +25,18 @@ export class AuthService {
 
 
         const accessToken = jwt.sign(
-            { sub: user.id },
+            {
+                sub: user.id,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                email: user.email,
+                role: user.role.name,
+                cellphoneNumber: user.cellphoneNumber
+            },
             process.env.JWT_SECRET!,
             { expiresIn: "1h" }
         );
-
+        
         return accessToken
     }
 

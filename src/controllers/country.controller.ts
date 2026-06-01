@@ -24,6 +24,12 @@ export class CountryController {
     return res.status(200).json(result);
   }
 
+  getAll = async (req: Request, res: Response) => {
+    const result = await this.countryService.getAll();
+
+    return res.status(200).json(result);
+  }
+
   getById = async (req: Request, res: Response) => {
     const { id } = paramsSchema.parse(req.params);
 

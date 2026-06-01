@@ -25,8 +25,14 @@ export class CountryService {
             limit: limitSafe,
             totalPages: Math.ceil(total / limitSafe)
         }
+    }
+
+    async getAll(): Promise<CountryResponseDto[]> {
+        const countries = await this.countryRepository.findAll()
+        return countries.map(c => this.toCountryResponseDto(c));
 
     }
+
 
     async getById(id: string): Promise<CountryResponseDto> {
         const countryFound = await this.countryRepository.findById(id);

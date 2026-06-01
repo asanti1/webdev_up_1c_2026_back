@@ -29,6 +29,21 @@ export class ReservationService {
         }
     }
 
+    async getAllByUserId(limit: number, page: number, id: string): Promise<PaginatedReservationsResponseDto> {
+        const limitSafe = Math.min(limit, 50);
+        const skip = (page - 1) * limitSafe;
+
+        const [reservations, total] = await this.reservationRepository.findAllByUserId(limitSafe, skip, id);
+
+        return {
+            data: reservations.map((reservation) => this.toReservationResponseDto(reservation)),
+            total,
+            page,
+            limit: limitSafe,
+            totalPages: Math.ceil(total / limitSafe)
+        }
+    }
+
     async getById(id: string): Promise<ReservationResponseDto> {
         const reservationFound = await this.reservationRepository.findById(id);
 
@@ -51,7 +66,7 @@ export class ReservationService {
         if (!reservation) throw new NotFoundError(`Reservation with id: ${id} not found`);
         if (reservation.user.id !== userId && role !== "ADMIN") throw new ForbiddenError();
         if (reservation.status === ReservationStatusEnum.CANCELLED) return;
-        
+
         reservation.package.availableSlots += reservation.totalPassengers;
 
         await this.packageRepository.save(reservation.package);

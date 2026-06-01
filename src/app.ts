@@ -13,6 +13,7 @@ import userRoutes from "./routes/user.routes";
 import countryRoutes from './routes/country.routes';
 import swaggerUi from "swagger-ui-express";
 import { openApiDocument } from './docs/openApi';
+import cors from 'cors';
 
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
@@ -28,6 +29,13 @@ app.use(express.json());
 app.use(passport.initialize());
 
 app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
+app.use(cors({
+  origin: 'http://localhost:4200',
+  credentials: true,
+}));
+
+
 app.get("/docs.json", (_req, res) => {
   return res.json(openApiDocument);
 });

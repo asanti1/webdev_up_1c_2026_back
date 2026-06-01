@@ -5,6 +5,33 @@ import { paginatedReservationsResponseSchema, reservationResponseSchema } from "
 import { ReservationStatusEnum } from "../../entity/reservation.entity";
 
 export function registerReservationPaths(registry: OpenAPIRegistry) {
+
+    registry.registerPath({
+        method: "get",
+        path: "/reservations/getAllMe",
+        tags: ["Reservations"],
+        summary: "Obtener reservas paginadas",
+        description: "Requiere JWT. Permite obtener reservas paginadas del propio usuario.",
+        security: [{ bearerAuth: [] }],
+        request: {
+            query: z.object({
+                limit: z.coerce.number().int().min(1).max(50).optional(),
+                page: z.coerce.number().int().min(1).optional(),
+            }),
+        },
+        responses: {
+            200: {
+                description: "Lista de reservas paginadas",
+                content: {
+                    "application/json": {
+                        schema: paginatedReservationsResponseSchema,
+                    },
+                },
+            },
+            401: { description: "Token ausente o inválido" },
+        },
+    });
+    
     registry.registerPath({
         method: "get",
         path: "/reservations",

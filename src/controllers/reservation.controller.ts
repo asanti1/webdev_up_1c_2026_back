@@ -32,6 +32,21 @@ export class ReservationController {
         return res.status(200).json(result);
     }
 
+    getAllMe = async (req: Request, res: Response) => {
+        let limit = Number(req.query.limit);
+        let page = Number(req.query.page);
+        const user = req.user! as User;
+
+        if (Number.isNaN(limit) || limit <= 0) limit = 10;
+        if (Number.isNaN(page) || page <= 0) page = 1;
+
+        if (limit > 50) limit = 50;
+
+        const result = await this.reservationService.getAllByUserId(limit, page, user.id);
+
+        return res.status(200).json(result);
+    }
+
 
     getById = async (req: Request, res: Response) => {
         const { id } = paramsSchema.parse(req.params);
